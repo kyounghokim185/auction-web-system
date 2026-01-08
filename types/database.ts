@@ -6,8 +6,65 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+export interface Project {
+  id: string
+  name: string
+  author: string
+  start_date: string | null
+  duration: string
+  notes: string
+  base_area: number
+  tasks: RemodelingTask[]
+  images: UploadedImage[]
+  created_at: string
+}
+
+export type RemodelingTask = {
+  id: string
+  isChecked: boolean
+  category: TaskCategory
+  item_name: string
+  description: string
+  unit_price: number
+  area: number
+}
+
+export type UploadedImage = {
+  url: string
+  path: string
+  category: ImageCategory
+}
+
+// Fixed Categories
+export const TASK_CATEGORIES = [
+  "설계(기획/기본/실시/시설)",
+  "가설/철거",
+  "파사드",
+  "바닥(기초)",
+  "바닥(마감)",
+  "벽(기초)",
+  "벽(마감)",
+  "천장(기초)",
+  "천장(마감)",
+  "천장(조명)",
+  "전기(1차)",
+  "전기(2차)",
+  "설비(1차)",
+  "설비(2차)",
+  "소방(1차)",
+  "소방(2차)",
+  "사인/가구/주방/위생",
+  "기타"
+] as const;
+
+export type TaskCategory = typeof TASK_CATEGORIES[number];
+
+export const IMAGE_CATEGORIES = ["바닥", "벽", "천장", "기타"] as const;
+export type ImageCategory = typeof IMAGE_CATEGORIES[number];
+
 export interface Database {
   public: {
+    // ... existing database types ...
     Tables: {
       properties: {
         Row: {

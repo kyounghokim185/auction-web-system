@@ -1,49 +1,49 @@
 "use client";
 
-import { useState, useMemo, ChangeEvent, useRef } from "react";
-import { Plus, Trash2, Calculator, Save, RefreshCw, FileText, CheckSquare, Square, Camera, Image as ImageIcon, X, Download } from "lucide-react";
+import { useState, useMemo, ChangeEvent, useRef, useEffect } from "react";
+import { Plus, Trash2, Calculator, Save, RefreshCw, FileText, CheckSquare, Square, Camera, Image as ImageIcon, X, Download, Lock, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { Project, RemodelingTask, UploadedImage, TASK_CATEGORIES, TaskCategory, IMAGE_CATEGORIES, ImageCategory } from "../../types/database";
 
 // Constants
 const PYUNG_TO_M2 = 3.30578;
 
-// Types
-type RemodelingTask = {
-  id: string;
-  isChecked: boolean;
-  category: string;
-  item_name: string;
-  description: string;
-  unit_price: number;
-  area: number;
-};
-
-type UploadedImage = {
-  url: string;
-  path: string;
-};
-
 // Initial Data
 const INITIAL_TASKS: RemodelingTask[] = [
-  { id: "1", isChecked: true, category: "철거/설비", item_name: "기본 철거 및 폐기물", description: "문틀, 마루, 욕실 등 전체 철거", unit_price: 150000, area: 32 },
-  { id: "2", isChecked: true, category: "목공", item_name: "몰딩/걸레받이/문선", description: "예림 도어/몰딩 기준", unit_price: 80000, area: 32 },
-  { id: "3", isChecked: true, category: "도배", item_name: "실크 벽지 (전체)", description: "LG 베스띠 / 신한 스케치", unit_price: 65000, area: 32 },
-  { id: "4", isChecked: true, category: "바닥", item_name: "강마루 (전체)", description: "구정마루 그랜드 텍스쳐", unit_price: 110000, area: 32 },
-  { id: "5", isChecked: true, category: "전기/조명", item_name: "LED 조명 및 스위치", description: "르그랑 스위치/콘센트", unit_price: 45000, area: 32 },
-  { id: "6", isChecked: true, category: "욕실", item_name: "공용 욕실 리모델링", description: "아메리칸 스탠다드 도기", unit_price: 3500000, area: 1 },
+  { id: "1", isChecked: true, category: "가설/철거", item_name: "기본 철거 및 폐기물", description: "문틀, 마루, 욕실 등 전체 철거", unit_price: 150000, area: 32 },
+  { id: "2", isChecked: true, category: "바닥(마감)", item_name: "강마루 (전체)", description: "구정마루 그랜드 텍스쳐", unit_price: 110000, area: 32 },
+  { id: "3", isChecked: true, category: "벽(마감)", item_name: "실크 벽지 (전체)", description: "LG 베스띠 / 신한 스케치", unit_price: 65000, area: 32 },
+  { id: "4", isChecked: true, category: "전기(2차)", item_name: "LED 조명 및 스위치", description: "르그랑 스위치/콘센트", unit_price: 45000, area: 32 },
 ];
 
 export default function RenewalEstimatePage() {
   // Global State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+
+  const [projectInfo, setProjectInfo] = useState({
+    id: "",
+    name: "",
+    author: "",
+    start_date: "",
+    duration: "",
+    notes: ""
+  });
+
   const [baseArea, setBaseArea] = useState<number | "">("");
   const [globalMemo, setGlobalMemo] = useState<string>("");
   const [tasks, setTasks] = useState<RemodelingTask[]>(INITIAL_TASKS);
   const [images, setImages] = useState<UploadedImage[]>([]);
+
+  // UI State
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedImageCategory, setSelectedImageCategory] = useState<ImageCategory>("기타");
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isProjectListOpen, setIsProjectListOpen] = useState(false);
+  const [savedProjects, setSavedProjects] = useState<Project[]>([]);
 
   // Refs
   // Add data attribute for onclone selection
@@ -75,9 +75,9 @@ export default function RenewalEstimatePage() {
       category: "기타",
       item_name: "새로운 공정",
       unit_price: 0,
-      area: typeof baseArea === "number" ? baseArea : 0,
+      area: typeof baseArea === "number" ? baseArea : 0, // Auto-inherit base area
       description: ""
-    };
+    }
     setTasks([...tasks, newTask]);
   };
 
@@ -100,6 +100,68 @@ export default function RenewalEstimatePage() {
     }
   };
 
+  // Persistence
+  const handleSaveProject = async () => {
+    if (!projectInfo.name) {
+      alert("공사명을 입력해주세요.");
+      return;
+    }
+
+    try {
+      const payload = {
+        name: projectInfo.name,
+        author: projectInfo.author,
+        start_date: projectInfo.start_date || null,
+        duration: projectInfo.duration,
+        notes: projectInfo.notes,
+        base_area: typeof baseArea === 'number' ? baseArea : 0,
+        tasks: tasks as any, // Cast for JSONB
+        images: images as any
+      };
+
+      const { data, error } = await supabase.from('projects').insert(payload).select();
+
+      if (error) throw error;
+      alert("성공적으로 저장되었습니다.");
+      // Refresh List if needs
+      fetchProjects();
+    } catch (e: any) {
+      console.error(e);
+      alert(`저장 실패: ${e.message}`);
+    }
+  };
+
+  const fetchProjects = async () => {
+    const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+    if (!error && data) {
+      setSavedProjects(data as any);
+    }
+  };
+
+  const loadProject = (project: Project) => {
+    if (!confirm("현재 작업 내용을 덮어쓰고 불러오시겠습니까?")) return;
+
+    setProjectInfo({
+      id: projectInfo.id, // keep current ID or not? usually DB id
+      name: project.name,
+      author: project.author,
+      start_date: project.start_date || "",
+      duration: project.duration,
+      notes: project.notes
+    });
+    setBaseArea(project.base_area);
+    setTasks(project.tasks);
+    setImages(project.images);
+    setIsProjectListOpen(false);
+  };
+
+  // Load list on mount/open
+  useEffect(() => {
+    if (isProjectListOpen) {
+      fetchProjects();
+    }
+  }, [isProjectListOpen]);
+
   // Image Upload
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -108,60 +170,37 @@ export default function RenewalEstimatePage() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!supabaseUrl || supabaseUrl.includes("placeholder")) {
       alert("시스템 오류: Supabase 환경변수가 설정되지 않았습니다.\n.env.local 파일을 확인해주세요.");
-      console.error("[Upload Critical] Missing Supabase URL. Current:", supabaseUrl);
-      e.target.value = ''; // Reset input
+      e.target.value = '';
       return;
     }
 
     const file = e.target.files[0];
     const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${Math.random()}.${fileExt}`;
-    const filePath = `${fileName}`;
+    // Path includes Category Folder
+    const fileName = `${selectedImageCategory}/${Date.now()}_${Math.random()}.${fileExt}`;
+    const filePath = `${fileName}`; // bucket/category/file
 
     setIsUploading(true);
-    console.log(`[Upload Debug] Starting upload for file: ${fileName} to bucket: 'site-photos'`);
 
     try {
       const bucketName = 'site-photos';
-
-      // Explicit Alert for Debugging
-      alert(`[Upload Debug Starting]\n\nURL: ${supabaseUrl}\nBucket: ${bucketName}`);
-
-      console.log(`[Upload Debug] Connection Info:`);
-      console.log(`- URL: ${supabaseUrl}`);
-      console.log(`- Bucket: ${bucketName}`);
 
       const { data, error: uploadError } = await supabase.storage
         .from(bucketName)
         .upload(filePath, file);
 
       if (uploadError) {
-        console.error("[Upload Debug] Raw Supabase Error:", uploadError);
         throw uploadError;
       }
-
-      console.log("[Upload Debug] Upload success, data:", data);
 
       const { data: { publicUrl } } = supabase.storage
         .from(bucketName)
         .getPublicUrl(filePath);
 
-      console.log("[Upload Debug] Public URL:", publicUrl);
-
-      setImages([...images, { url: publicUrl, path: filePath }]);
+      setImages([...images, { url: publicUrl, path: filePath, category: selectedImageCategory }]);
     } catch (error: any) {
       console.error('[Upload Debug] Final Error Block:', error);
-
-      const errorMessage = error.message || "알 수 없는 오류";
-      // Check for specific RLS/403 errors
-      let additionalHint = "";
-      if (errorMessage.includes("new row violates row-level security")) {
-        additionalHint = "\n\n[힌트] Supabase 저장소 정책(Policy)이 설정되지 않았습니다. supabase_storage.sql을 실행해주세요.";
-      } else if (errorMessage.includes("The resource was not found")) {
-        additionalHint = "\n\n[힌트] 'site-photos' 버킷이 존재하지 않습니다. supabase_storage.sql을 실행해주세요.";
-      }
-
-      alert(`[사진 업로드 실패]\n\n에러 메시지: ${errorMessage}${additionalHint}\n\n(콘솔 로그를 확인하세요)`);
+      alert(`[사진 업로드 실패]\n${error.message}`);
     } finally {
       setIsUploading(false);
       e.target.value = '';
@@ -216,7 +255,8 @@ export default function RenewalEstimatePage() {
         heightLeft -= pdfHeight;
       }
 
-      pdf.save(`견적서_${new Date().toISOString().slice(0, 10)}.pdf`);
+      const safeName = projectInfo.name.replace(/[^a-zA-Z0-9가-힣\s]/g, "").trim() || "견적서";
+      pdf.save(`${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
 
     } catch (error: any) {
       console.error("PDF Generation Failed:", error);
@@ -228,6 +268,46 @@ export default function RenewalEstimatePage() {
     }
   };
 
+  // Authentication Guard
+  if (!isAuthenticated) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+        <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm">
+          <div className="flex justify-center mb-6">
+            <div className="bg-indigo-100 p-3 rounded-full">
+              <Lock className="w-8 h-8 text-indigo-600" />
+            </div>
+          </div>
+          <h2 className="text-xl font-bold text-center mb-6 text-slate-800">보안 접속</h2>
+          <form className="space-y-4" onSubmit={(e) => {
+            e.preventDefault();
+            if (passwordInput === "1234") {
+              setIsAuthenticated(true);
+            } else {
+              alert("비밀번호가 일치하지 않습니다.");
+            }
+          }}>
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              placeholder="비밀번호 4자리"
+              className="w-full text-center text-2xl tracking-widest px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              autoFocus
+              maxLength={4}
+            />
+            <button
+              type="submit"
+              className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition"
+            >
+              접속하기
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
       {/* Header */}
@@ -235,14 +315,58 @@ export default function RenewalEstimatePage() {
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 text-indigo-700">
             <FileText className="w-6 h-6" />
-            <h1 className="font-bold text-xl tracking-tight">리뉴얼 공사 예가 산출 시스템</h1>
+            <h1 className="font-bold text-xl tracking-tight hidden md:block">리뉴얼 견적 시스템</h1>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="공사명 입력 (예: 압구정 현대 32평)"
+              value={projectInfo.name}
+              onChange={(e) => setProjectInfo({ ...projectInfo, name: e.target.value })}
+              className="hidden md:block w-64 px-3 py-1.5 border rounded text-sm bg-slate-50 focus:bg-white transition"
+            />
+            <button onClick={() => setIsProjectListOpen(true)} className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 text-sm font-semibold">
+              <FolderOpen className="w-4 h-4" />
+              <span className="hidden sm:inline">불러오기</span>
+            </button>
+            <button onClick={handleSaveProject} className="flex items-center gap-1 px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-bold shadow-sm">
+              <Save className="w-4 h-4" />
+              <span className="hidden sm:inline">저장</span>
+            </button>
           </div>
         </div>
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Editor Content same as before... */}
+        {/* Editor Content */}
         <div className="lg:col-span-8 flex flex-col gap-8">
+
+          {/* 0. Project Details (New Section) */}
+          <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <span className="w-1.5 h-6 bg-slate-800 rounded-full block"></span>
+              기본 정보 상세
+            </h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-500 mb-1 block">공사 시작일</label>
+                <input type="date" value={projectInfo.start_date || ""} onChange={(e) => setProjectInfo({ ...projectInfo, start_date: e.target.value })} className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-500 mb-1 block">예상 기간</label>
+                <input type="text" placeholder="예: 4주" value={projectInfo.duration} onChange={(e) => setProjectInfo({ ...projectInfo, duration: e.target.value })} className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-500 mb-1 block">작성자</label>
+                <input type="text" placeholder="담당자명" value={projectInfo.author} onChange={(e) => setProjectInfo({ ...projectInfo, author: e.target.value })} className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-500 mb-1 block">특이사항 (한줄)</label>
+                <input type="text" placeholder="비고란" value={projectInfo.notes} onChange={(e) => setProjectInfo({ ...projectInfo, notes: e.target.value })} className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+            </div>
+          </section>
           {/* ... (Previous editor sections retained) ... */}
           {/* 1. Base Project Info */}
           <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -311,7 +435,15 @@ export default function RenewalEstimatePage() {
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div className="md:col-span-1">
                         <label className="text-xs font-semibold text-slate-500 mb-1 block">공종</label>
-                        <input type="text" value={task.category} onChange={(e) => handleUpdateTask(task.id, 'category', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-sm font-semibold text-slate-800 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none" />
+                        <select
+                          value={task.category}
+                          onChange={(e) => handleUpdateTask(task.id, 'category', e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-sm font-semibold text-slate-800 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none"
+                        >
+                          {TASK_CATEGORIES.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
                       </div>
                       <div className="md:col-span-3">
                         <label className="text-xs font-semibold text-slate-500 mb-1 block">항목명</label>
@@ -352,11 +484,20 @@ export default function RenewalEstimatePage() {
           <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><span className="w-1.5 h-6 bg-rose-500 rounded-full block"></span>현장 사진 대장</h2>
-              <label className={cn("inline-flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 rounded-lg hover:bg-rose-100 transition-colors font-semibold text-sm cursor-pointer border border-rose-100", isUploading && "opacity-50 cursor-not-allowed")}>
-                {isUploading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-                <span>{isUploading ? "업로드 중..." : "사진 첨부"}</span>
-                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploading} />
-              </label>
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedImageCategory}
+                  onChange={(e) => setSelectedImageCategory(e.target.value as ImageCategory)}
+                  className="px-2 py-2 border rounded-lg text-sm bg-rose-50 border-rose-100 text-rose-800 font-bold focus:ring-2 focus:ring-rose-500 outline-none"
+                >
+                  {IMAGE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+                <label className={cn("inline-flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 rounded-lg hover:bg-rose-100 transition-colors font-semibold text-sm cursor-pointer border border-rose-100", isUploading && "opacity-50 cursor-not-allowed")}>
+                  {isUploading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                  <span>{isUploading ? "업로드 중..." : "사진 첨부"}</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploading} />
+                </label>
+              </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {images.map((img, index) => (
@@ -476,6 +617,43 @@ export default function RenewalEstimatePage() {
           )}
         </div>
       </div>
+      {/* Project List Modal */}
+      {isProjectListOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="p-6 border-b flex justify-between items-center bg-slate-50 rounded-t-xl">
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                <FolderOpen className="w-5 h-5 text-indigo-600" />
+                저장된 견적 목록
+              </h3>
+              <button onClick={() => setIsProjectListOpen(false)}><X className="w-5 h-5 text-slate-400 hover:text-slate-600" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              {savedProjects.length === 0 ? (
+                <div className="py-12 text-center text-slate-400">저장된 견적이 없습니다.</div>
+              ) : (
+                <div className="space-y-2">
+                  {savedProjects.map(proj => (
+                    <div key={proj.id} className="group flex items-center justify-between p-4 hover:bg-indigo-50 rounded-lg border border-transparent hover:border-indigo-100 transition cursor-pointer" onClick={() => loadProject(proj)}>
+                      <div>
+                        <div className="font-bold text-slate-800 text-lg mb-1">{proj.name}</div>
+                        <div className="text-xs text-slate-500 flex gap-2">
+                          <span>{new Date(proj.created_at).toLocaleDateString()}</span>
+                          <span>•</span>
+                          <span>{proj.author}</span>
+                          <span>•</span>
+                          <span>{proj.base_area}평</span>
+                        </div>
+                      </div>
+                      <div className="text-indigo-600 font-bold text-sm opacity-0 group-hover:opacity-100 transition">선택</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
