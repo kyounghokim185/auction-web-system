@@ -144,15 +144,26 @@ export default function RenewalEstimatePage() {
 
   // PDF Export
   const handleDownloadPdf = async () => {
+    // 1. Client-side check
+    if (typeof window === "undefined") return;
     if (!printRef.current) return;
+
     setIsGeneratingPdf(true);
 
     try {
+      // 2. Wait for fonts to ensure Korean renders correctly
+      await document.fonts.ready;
+
+      // 3. Capture with html2canvas
+      // Note: useCORS is essential for external images (Supabase). 
+      // If CORS is not configured on the bucket, this might fail or omit images.
       const canvas = await html2canvas(printRef.current, {
-        scale: 2, // Higher quality
-        useCORS: true, // For images
-        logging: false,
-        backgroundColor: "#ffffff"
+        scale: 2,
+        useCORS: true,
+        logging: true, // Enable internal logging to console for debugging
+        backgroundColor: "#ffffff",
+        windowWidth: printRef.current.scrollWidth, // Ensure full width capture
+        windowHeight: printRef.current.scrollHeight
       } as any);
 
       const imgData = canvas.toDataURL("image/png");
@@ -172,7 +183,7 @@ export default function RenewalEstimatePage() {
       pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
       heightLeft -= pdfHeight;
 
-      // Multi-page logic if content is long
+      // Multi-page logic
       while (heightLeft > 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
@@ -182,9 +193,16 @@ export default function RenewalEstimatePage() {
 
       pdf.save(`견적서_${new Date().toISOString().slice(0, 10)}.pdf`);
 
-    } catch (error) {
-      console.error("PDF Gen Error:", error);
-      alert("PDF 생성 중 오류가 발생했습니다.");
+    } catch (error: any) {
+      // 4. Enhanced Error Logging
+      console.error("PDF Generation Failed:", error);
+
+      // Show detailed alert to user
+      let msg = "PDF 생성 중 오류가 발생했습니다.";
+      if (error?.message) msg += `\n(${error.message})`;
+      if (error?.name === "SecurityError") msg += "\n(이미지 보안/CORS 문제일 가능성이 높습니다.)";
+
+      alert(msg);
     } finally {
       setIsGeneratingPdf(false);
     }
