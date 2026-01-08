@@ -215,8 +215,18 @@ function RenewalEstimateContent() {
 
     const file = e.target.files[0];
     const fileExt = file.name.split('.').pop();
+
+    // Map Korean Category to English Folder Name
+    const folderMap: Record<string, string> = {
+      "바닥": "floor",
+      "벽": "wall",
+      "천장": "ceiling",
+      "기타": "etc"
+    };
+    const folderName = folderMap[selectedImageCategory] || "etc";
+
     // Path includes Category Folder
-    const fileName = `${selectedImageCategory}/${Date.now()}_${Math.random()}.${fileExt}`;
+    const fileName = `${folderName}/${Date.now()}_${Math.random()}.${fileExt}`;
     const filePath = `${fileName}`; // bucket/category/file
 
     setIsUploading(true);
