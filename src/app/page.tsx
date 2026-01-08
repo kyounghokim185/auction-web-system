@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, ChangeEvent, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus, Trash2, Calculator, Save, RefreshCw, FileText, CheckSquare, Square, Camera, Image as ImageIcon, X, Download, Lock, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
@@ -181,6 +182,40 @@ export default function RenewalEstimatePage() {
     }
   }, [isProjectListOpen]);
 
+  const searchParams = useSearchParams();
+
+  // Load from URL if present
+  useEffect(() => {
+    const loadId = searchParams.get("loadId");
+    if (loadId && isAuthenticated) {
+      // Fetch specific project
+      const fetchAndLoad = async () => {
+        const { data, error } = await supabase.from('projects').select('*').eq('id', loadId).single();
+        if (data && !error) {
+          loadProject(data as any);
+        }
+      };
+      fetchAndLoad();
+    }
+  }, [searchParams, isAuthenticated]);
+
+  const searchParams = useSearchParams();
+
+  // Load from URL if present
+  useEffect(() => {
+    const loadId = searchParams.get("loadId");
+    if (loadId && isAuthenticated) {
+      // Fetch specific project
+      const fetchAndLoad = async () => {
+        const { data, error } = await supabase.from('projects').select('*').eq('id', loadId).single();
+        if (data && !error) {
+          loadProject(data as any);
+        }
+      };
+      fetchAndLoad();
+    }
+  }, [searchParams, isAuthenticated]);
+
   // Image Upload
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -345,6 +380,10 @@ export default function RenewalEstimatePage() {
               onChange={(e) => setProjectInfo({ ...projectInfo, name: e.target.value })}
               className="hidden md:block w-64 px-3 py-1.5 border rounded text-sm bg-slate-50 focus:bg-white transition"
             />
+            <button onClick={() => window.location.href = '/dashboard'} className="flex items-center gap-1 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 text-sm font-semibold border border-indigo-100">
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">대시보드</span>
+            </button>
             <button onClick={() => setIsProjectListOpen(true)} className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 text-sm font-semibold">
               <FolderOpen className="w-4 h-4" />
               <span className="hidden sm:inline">불러오기</span>
@@ -531,26 +570,24 @@ export default function RenewalEstimatePage() {
                           </div>
                         ))}
 
-                        {/* Add Item Button only for "기타" category */}
-                        {category === "기타" && (
-                          <button
-                            onClick={() => {
-                              const newTask: RemodelingTask = {
-                                id: crypto.randomUUID(),
-                                isChecked: true,
-                                category: "기타",
-                                item_name: "추가 항목",
-                                description: "",
-                                unit_price: 0,
-                                area: 0
-                              };
-                              setTasks([...tasks, newTask]);
-                            }}
-                            className="w-full py-2 border border-dashed border-slate-300 rounded text-slate-500 text-xs hover:bg-slate-50 hover:text-indigo-600 transition"
-                          >
-                            + 항목 추가
-                          </button>
-                        )}
+                        {/* Add Item Button for ALL categories */}
+                        <button
+                          onClick={() => {
+                            const newTask: RemodelingTask = {
+                              id: crypto.randomUUID(),
+                              isChecked: true, // Auto checked in group
+                              category: category, // Use current category
+                              item_name: "추가 항목",
+                              description: "",
+                              unit_price: 0,
+                              area: 0
+                            };
+                            setTasks([...tasks, newTask]);
+                          }}
+                          className="w-full py-2 border border-dashed border-slate-300 rounded text-slate-500 text-xs hover:bg-slate-50 hover:text-indigo-600 transition"
+                        >
+                          + 상세 항목 추가
+                        </button>
                       </div>
                     )}
                   </div>
