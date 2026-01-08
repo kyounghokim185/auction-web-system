@@ -123,6 +123,10 @@ export default function RenewalEstimatePage() {
 
     try {
       const bucketName = 'site-photos';
+
+      // Explicit Alert for Debugging
+      alert(`[Upload Debug Starting]\n\nURL: ${supabaseUrl}\nBucket: ${bucketName}`);
+
       console.log(`[Upload Debug] Connection Info:`);
       console.log(`- URL: ${supabaseUrl}`);
       console.log(`- Bucket: ${bucketName}`);
