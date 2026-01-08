@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, ChangeEvent, useRef, useEffect } from "react";
+import { useState, useMemo, ChangeEvent, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Plus, Trash2, Calculator, Save, RefreshCw, FileText, CheckSquare, Square, Camera, Image as ImageIcon, X, Download, Lock, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -58,7 +58,7 @@ const INITIAL_TASKS: RemodelingTask[] = [
   { id: "etc1", isChecked: false, category: "기타", item_name: "기타 비용", description: "", unit_price: 0, area: 0 },
 ];
 
-export default function RenewalEstimatePage() {
+function RenewalEstimateContent() {
   // Global State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
@@ -762,5 +762,13 @@ export default function RenewalEstimatePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function RenewalEstimatePage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
+      <RenewalEstimateContent />
+    </Suspense>
   );
 }
