@@ -1,15 +1,20 @@
--- Storage Bucket Setup for Site Photos
+-- Storage Bucket Setup for Site Photos (Idempotent)
 
--- Create a public bucket named 'site-photos'
+-- 1. Create a public bucket named 'site-photos' if it doesn't exist
 insert into storage.buckets (id, name, public)
-values ('site-photos', 'site-photos', true);
+values ('site-photos', 'site-photos', true)
+on conflict (id) do update set public = true;
 
--- Policy to allow public access to view photos
+-- 2. Drop existing policies to ensure clean state (optional, but safer for updates)
+drop policy if exists "Public Access" on storage.objects;
+drop policy if exists "Anyone can upload" on storage.objects;
+
+-- 3. Policy to allow public access to view photos
 create policy "Public Access"
   on storage.objects for select
   using ( bucket_id = 'site-photos' );
 
--- Policy to allow anyone to upload photos (MVP: authenticating strictly is better, but per prompt "allow upload")
+-- 4. Policy to allow anyone to upload photos
 create policy "Anyone can upload"
   on storage.objects for insert
   with check ( bucket_id = 'site-photos' );

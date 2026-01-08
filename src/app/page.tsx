@@ -104,6 +104,15 @@ export default function RenewalEstimatePage() {
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
 
+    // 1. Strict Env Check
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl || supabaseUrl.includes("placeholder")) {
+      alert("시스템 오류: Supabase 환경변수가 설정되지 않았습니다.\n.env.local 파일을 확인해주세요.");
+      console.error("[Upload Critical] Missing Supabase URL. Current:", supabaseUrl);
+      e.target.value = ''; // Reset input
+      return;
+    }
+
     const file = e.target.files[0];
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}_${Math.random()}.${fileExt}`;
@@ -113,22 +122,24 @@ export default function RenewalEstimatePage() {
     console.log(`[Upload Debug] Starting upload for file: ${fileName} to bucket: 'site-photos'`);
 
     try {
-      // Log env var status
-      console.log("[Upload Debug] Supabase URL exists:", !!process.env.NEXT_PUBLIC_SUPABASE_URL);
+      const bucketName = 'site-photos';
+      console.log(`[Upload Debug] Connection Info:`);
+      console.log(`- URL: ${supabaseUrl}`);
+      console.log(`- Bucket: ${bucketName}`);
 
       const { data, error: uploadError } = await supabase.storage
-        .from('site-photos')
+        .from(bucketName)
         .upload(filePath, file);
 
       if (uploadError) {
         console.error("[Upload Debug] Raw Supabase Error:", uploadError);
-        throw uploadError; // Throw raw error to be caught below
+        throw uploadError;
       }
 
       console.log("[Upload Debug] Upload success, data:", data);
 
       const { data: { publicUrl } } = supabase.storage
-        .from('site-photos')
+        .from(bucketName)
         .getPublicUrl(filePath);
 
       console.log("[Upload Debug] Public URL:", publicUrl);
@@ -137,10 +148,16 @@ export default function RenewalEstimatePage() {
     } catch (error: any) {
       console.error('[Upload Debug] Final Error Block:', error);
 
-      // Detailed Alert for the user
       const errorMessage = error.message || "알 수 없는 오류";
-      const errorDetails = JSON.stringify(error, null, 2);
-      alert(`[사진 업로드 실패]\n\n에러 메시지: ${errorMessage}\n\n상세 정보: ${errorDetails}`);
+      // Check for specific RLS/403 errors
+      let additionalHint = "";
+      if (errorMessage.includes("new row violates row-level security")) {
+        additionalHint = "\n\n[힌트] Supabase 저장소 정책(Policy)이 설정되지 않았습니다. supabase_storage.sql을 실행해주세요.";
+      } else if (errorMessage.includes("The resource was not found")) {
+        additionalHint = "\n\n[힌트] 'site-photos' 버킷이 존재하지 않습니다. supabase_storage.sql을 실행해주세요.";
+      }
+
+      alert(`[사진 업로드 실패]\n\n에러 메시지: ${errorMessage}${additionalHint}\n\n(콘솔 로그를 확인하세요)`);
     } finally {
       setIsUploading(false);
       e.target.value = '';
