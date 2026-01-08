@@ -46,6 +46,7 @@ export default function RenewalEstimatePage() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   // Refs
+  // Add data attribute for onclone selection
   const printRef = useRef<HTMLDivElement>(null);
 
   // Calculate Total
@@ -73,9 +74,9 @@ export default function RenewalEstimatePage() {
       isChecked: true,
       category: "기타",
       item_name: "새로운 공정",
-      description: "",
       unit_price: 0,
       area: typeof baseArea === "number" ? baseArea : 0,
+      description: ""
     };
     setTasks([...tasks, newTask]);
   };
@@ -116,7 +117,6 @@ export default function RenewalEstimatePage() {
         .upload(filePath, file);
 
       if (uploadError) {
-        // Handle missing env vars gracefully in frontend if they are missing
         if (uploadError.message.includes("is required")) {
           throw new Error("Supabase 설정이 완료되지 않았습니다. .env.local 파일을 확인해주세요.");
         }
@@ -144,31 +144,27 @@ export default function RenewalEstimatePage() {
 
   // PDF Export
   const handleDownloadPdf = async () => {
-    // 1. Client-side check
     if (typeof window === "undefined") return;
     if (!printRef.current) return;
 
     setIsGeneratingPdf(true);
 
     try {
-      // 2. Wait for fonts to ensure Korean renders correctly
       await document.fonts.ready;
 
-      // 3. Capture with html2canvas
-      // Note: useCORS is essential for external images (Supabase). 
-      // If CORS is not configured on the bucket, this might fail or omit images.
       const canvas = await html2canvas(printRef.current, {
         scale: 2,
         useCORS: true,
-        logging: true, // Enable internal logging to console for debugging
+        logging: true,
         backgroundColor: "#ffffff",
-        windowWidth: printRef.current.scrollWidth, // Ensure full width capture
-        windowHeight: printRef.current.scrollHeight
+        onclone: (clonedDoc: Document) => {
+          // Optional: You can manipulate clonedDoc here if needed
+          console.log("DOM Cloned for Print");
+        }
       } as any);
 
       const imgData = canvas.toDataURL("image/png");
 
-      // A4 Size settings
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -179,11 +175,9 @@ export default function RenewalEstimatePage() {
       let heightLeft = imgHeight;
       let position = 0;
 
-      // First page
       pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
       heightLeft -= pdfHeight;
 
-      // Multi-page logic
       while (heightLeft > 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
@@ -194,14 +188,9 @@ export default function RenewalEstimatePage() {
       pdf.save(`견적서_${new Date().toISOString().slice(0, 10)}.pdf`);
 
     } catch (error: any) {
-      // 4. Enhanced Error Logging
       console.error("PDF Generation Failed:", error);
-
-      // Show detailed alert to user
       let msg = "PDF 생성 중 오류가 발생했습니다.";
       if (error?.message) msg += `\n(${error.message})`;
-      if (error?.name === "SecurityError") msg += "\n(이미지 보안/CORS 문제일 가능성이 높습니다.)";
-
       alert(msg);
     } finally {
       setIsGeneratingPdf(false);
@@ -221,9 +210,9 @@ export default function RenewalEstimatePage() {
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-        {/* Left Side: Editor */}
+        {/* Editor Content same as before... */}
         <div className="lg:col-span-8 flex flex-col gap-8">
+          {/* ... (Previous editor sections retained) ... */}
           {/* 1. Base Project Info */}
           <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
@@ -376,15 +365,19 @@ export default function RenewalEstimatePage() {
             </div>
           </div>
         </div>
-
       </main>
 
-      {/* Hidden Print Template */}
+      {/* Hidden Print Template - Replaced Tailwind Colors with safe Inline HEX */}
       <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
-        <div ref={printRef} className="w-[210mm] min-h-[297mm] bg-white p-[15mm] text-slate-900">
-          <div className="text-center border-b-2 border-slate-900 pb-6 mb-8">
-            <h1 className="text-3xl font-bold tracking-tight mb-2">리뉴얼 공사 예가 산출서</h1>
-            <p className="text-slate-500 text-sm">Renewal Construction Preliminary Estimate</p>
+        <div
+          ref={printRef}
+          data-print-target="true"
+          className="w-[210mm] min-h-[297mm] p-[15mm]"
+          style={{ backgroundColor: '#ffffff', color: '#0f172a' }} // Explicit HEX
+        >
+          <div className="text-center pb-6 mb-8" style={{ borderBottom: '2px solid #0f172a' }}>
+            <h1 className="text-3xl font-bold tracking-tight mb-2" style={{ color: '#0f172a' }}>리뉴얼 공사 예가 산출서</h1>
+            <p className="text-sm" style={{ color: '#64748b' }}>Renewal Construction Preliminary Estimate</p>
           </div>
 
           <div className="flex justify-between items-end mb-8">
@@ -393,57 +386,57 @@ export default function RenewalEstimatePage() {
               <p><span className="font-bold w-20 inline-block">기준면적:</span> {baseArea || 0} 평 ({getM2(baseArea)} m²)</p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-slate-500 mb-1">총 예상 소요 금액 (VAT 별도)</p>
-              <p className="text-2xl font-bold text-indigo-700">{formatCurrency(totalCost)}</p>
+              <p className="text-sm mb-1" style={{ color: '#64748b' }}>총 예상 소요 금액 (VAT 별도)</p>
+              <p className="text-2xl font-bold" style={{ color: '#4338ca' }}>{formatCurrency(totalCost)}</p>
             </div>
           </div>
 
           <div className="mb-8">
             <table className="w-full text-sm text-left border-collapse">
               <thead>
-                <tr className="bg-slate-100 border-t-2 border-slate-900">
-                  <th className="py-3 px-2 border-b font-bold w-[15%]">공종(카테고리)</th>
-                  <th className="py-3 px-2 border-b font-bold w-[25%]">항목 / 내용</th>
-                  <th className="py-3 px-2 border-b font-bold w-[20%]">세부사양</th>
-                  <th className="py-3 px-2 border-b font-bold w-[10%] text-right">수량</th>
-                  <th className="py-3 px-2 border-b font-bold w-[15%] text-right">단가</th>
-                  <th className="py-3 px-2 border-b font-bold w-[15%] text-right">합계</th>
+                <tr style={{ backgroundColor: '#f1f5f9', borderTop: '2px solid #0f172a' }}>
+                  <th className="py-3 px-2 border-b font-bold w-[15%]" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>공종(카테고리)</th>
+                  <th className="py-3 px-2 border-b font-bold w-[25%]" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>항목 / 내용</th>
+                  <th className="py-3 px-2 border-b font-bold w-[20%]" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>세부사양</th>
+                  <th className="py-3 px-2 border-b font-bold w-[10%] text-right" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>수량</th>
+                  <th className="py-3 px-2 border-b font-bold w-[15%] text-right" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>단가</th>
+                  <th className="py-3 px-2 border-b font-bold w-[15%] text-right" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>합계</th>
                 </tr>
               </thead>
               <tbody>
                 {tasks.filter(t => t.isChecked).map((task) => (
-                  <tr key={task.id} className="border-b border-slate-200">
-                    <td className="py-3 px-2 font-medium">{task.category}</td>
-                    <td className="py-3 px-2 font-bold">{task.item_name}</td>
-                    <td className="py-3 px-2 text-slate-500 text-xs">{task.description || "-"}</td>
-                    <td className="py-3 px-2 text-right">{task.area}</td>
-                    <td className="py-3 px-2 text-right text-slate-600">{task.unit_price.toLocaleString()}</td>
-                    <td className="py-3 px-2 text-right font-bold">{(task.area * task.unit_price).toLocaleString()}</td>
+                  <tr key={task.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td className="py-3 px-2 font-medium" style={{ color: '#0f172a' }}>{task.category}</td>
+                    <td className="py-3 px-2 font-bold" style={{ color: '#0f172a' }}>{task.item_name}</td>
+                    <td className="py-3 px-2 text-xs" style={{ color: '#64748b' }}>{task.description || "-"}</td>
+                    <td className="py-3 px-2 text-right" style={{ color: '#0f172a' }}>{task.area}</td>
+                    <td className="py-3 px-2 text-right" style={{ color: '#475569' }}>{task.unit_price.toLocaleString()}</td>
+                    <td className="py-3 px-2 text-right font-bold" style={{ color: '#0f172a' }}>{(task.area * task.unit_price).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr className="bg-slate-50 border-t-2 border-slate-900">
-                  <td colSpan={5} className="py-4 px-2 text-right font-bold">총 합계</td>
-                  <td className="py-4 px-2 text-right font-bold text-lg">{formatCurrency(totalCost)}</td>
+                <tr style={{ backgroundColor: '#f8fafc', borderTop: '2px solid #0f172a' }}>
+                  <td colSpan={5} className="py-4 px-2 text-right font-bold" style={{ color: '#0f172a' }}>총 합계</td>
+                  <td className="py-4 px-2 text-right font-bold text-lg" style={{ color: '#0f172a' }}>{formatCurrency(totalCost)}</td>
                 </tr>
               </tfoot>
             </table>
           </div>
 
           {globalMemo && (
-            <div className="mb-8 border rounded-lg p-6 bg-slate-50">
-              <h3 className="font-bold border-b border-slate-200 pb-2 mb-3 text-sm text-slate-700">산출 근거 및 비고</h3>
-              <p className="text-sm whitespace-pre-wrap leading-relaxed">{globalMemo}</p>
+            <div className="mb-8 border rounded-lg p-6" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
+              <h3 className="font-bold border-b pb-2 mb-3 text-sm" style={{ color: '#334155', borderColor: '#e2e8f0' }}>산출 근거 및 비고</h3>
+              <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: '#0f172a' }}>{globalMemo}</p>
             </div>
           )}
 
           {images.length > 0 && (
             <div>
-              <h3 className="font-bold border-b-2 border-slate-900 pb-2 mb-6 text-sm text-slate-700">현장 사진 대장</h3>
+              <h3 className="font-bold border-b-2 pb-2 mb-6 text-sm" style={{ color: '#334155', borderColor: '#0f172a' }}>현장 사진 대장</h3>
               <div className="grid grid-cols-2 gap-4">
                 {images.map((img, i) => (
-                  <div key={i} className="aspect-video bg-slate-100 rounded overflow-hidden border">
+                  <div key={i} className="aspect-video rounded overflow-hidden border" style={{ backgroundColor: '#f1f5f9', borderColor: '#e2e8f0' }}>
                     <img src={img.url} className="w-full h-full object-contain" alt="site" />
                   </div>
                 ))}
