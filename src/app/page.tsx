@@ -427,69 +427,135 @@ export default function RenewalEstimatePage() {
             </div>
           </section>
 
-          {/* 2. Task List */}
+          {/* 2. Task List (Accordion Style) */}
           <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <span className="w-1.5 h-6 bg-teal-600 rounded-full block"></span>
-                공정별 산출 내역
+                공종별 산출 내역
               </h2>
-              <button
-                onClick={handleAddTask}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors font-semibold text-sm border border-indigo-100"
-              >
-                <Plus className="w-4 h-4" />
-                공정 추가
-              </button>
             </div>
-            <div className="space-y-4">
-              {tasks.map((task) => (
-                <div key={task.id} className={cn("relative border rounded-lg p-5 transition-all duration-200", task.isChecked ? "bg-white border-indigo-100 shadow-sm hover:shadow-md ring-1 ring-indigo-500/10" : "bg-slate-50 border-slate-200 opacity-70 grayscale-[0.5]")}>
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="pt-1">
-                      <button onClick={() => handleUpdateTask(task.id, 'isChecked', !task.isChecked)} className={cn("transition-colors", task.isChecked ? "text-indigo-600" : "text-slate-300 hover:text-slate-400")}>
-                        {task.isChecked ? <CheckSquare className="w-6 h-6" /> : <Square className="w-6 h-6" />}
-                      </button>
-                    </div>
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div className="md:col-span-1">
-                        <label className="text-xs font-semibold text-slate-500 mb-1 block">공종</label>
-                        <select
-                          value={task.category}
-                          onChange={(e) => handleUpdateTask(task.id, 'category', e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-sm font-semibold text-slate-800 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none"
+
+            <div className="space-y-3">
+              {TASK_CATEGORIES.map((category) => {
+                const categoryTasks = tasks.filter(t => t.category === category);
+                // "기타" 카테고리는 항상 보이게 하거나, 초기 데이터에 없으면 안보이게 처리
+                if (categoryTasks.length === 0 && category !== "기타") return null;
+
+                const isGroupChecked = categoryTasks.some(t => t.isChecked);
+                const hasActiveValue = categoryTasks.some(t => t.area > 0 || t.unit_price > 0);
+                const groupTotal = categoryTasks.reduce((sum, t) => sum + (t.isChecked ? t.area * t.unit_price : 0), 0);
+
+                return (
+                  <div key={category} className={cn("border rounded-lg transition-all duration-200 overflow-hidden", isGroupChecked ? "border-indigo-200 bg-white shadow-sm ring-1 ring-indigo-500/20" : "border-slate-200 bg-slate-50")}>
+                    {/* Header Bar */}
+                    <div className={cn("flex items-center gap-4 p-4 cursor-pointer transition-colors", hasActiveValue ? "bg-indigo-50/50" : "")} onClick={() => {
+                      // Toggle Group Logic: Toggle ALL tasks in this category based on the *inverse* of the group state
+                      // If group is checked (some checked), we likely want to uncheck all.
+                      // If group is unchecked (none checked), we likely want to check all.
+                      // Let's simplify: Click header -> toggle all based on whether majority are checked?
+                      // Better: Always check all if unchecked. Always uncheck all if checked.
+                      const newCheckedState = !isGroupChecked;
+                      const ids = categoryTasks.map(t => t.id);
+                      setTasks(prev => prev.map(t => ids.includes(t.id) ? { ...t, isChecked: newCheckedState } : t));
+                    }}>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => {
+                            const newCheckedState = !isGroupChecked;
+                            const ids = categoryTasks.map(t => t.id);
+                            setTasks(prev => prev.map(t => ids.includes(t.id) ? { ...t, isChecked: newCheckedState } : t));
+                          }}
+                          className={cn("transition-colors", isGroupChecked ? "text-indigo-600" : "text-slate-400 hover:text-slate-500")}
                         >
-                          {TASK_CATEGORIES.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                        </select>
+                          {isGroupChecked ? <CheckSquare className="w-6 h-6" /> : <Square className="w-6 h-6" />}
+                        </button>
                       </div>
-                      <div className="md:col-span-3">
-                        <label className="text-xs font-semibold text-slate-500 mb-1 block">항목명</label>
-                        <input type="text" value={task.item_name} onChange={(e) => handleUpdateTask(task.id, 'item_name', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-sm font-bold text-slate-900 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none" />
+                      <div className="flex-1 font-bold text-slate-800 flex justify-between items-center">
+                        <span>{category}</span>
+                        {isGroupChecked && groupTotal > 0 && (
+                          <span className="text-indigo-600 text-sm">{formatCurrency(groupTotal)}</span>
+                        )}
                       </div>
                     </div>
-                    <button onClick={() => handleDeleteTask(task.id)} className="text-slate-300 hover:text-red-500 transition-colors p-1"><Trash2 className="w-4 h-4" /></button>
+
+                    {/* Body (Expanded) */}
+                    {isGroupChecked && (
+                      <div className="p-4 pt-0 space-y-3 bg-white border-t border-slate-100">
+                        {categoryTasks.map((task) => (
+                          <div key={task.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 mt-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                            {/* Label */}
+                            <div className="md:col-span-3 font-semibold text-slate-700 text-sm flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                              {task.item_name}
+                            </div>
+
+                            {/* Inputs */}
+                            <div className="md:col-span-9 grid grid-cols-12 gap-2">
+                              <div className="col-span-12 md:col-span-6">
+                                <input
+                                  type="text"
+                                  placeholder="상세 규격 및 비고"
+                                  value={task.description}
+                                  onChange={(e) => handleUpdateTask(task.id, 'description', e.target.value)}
+                                  className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 outline-none"
+                                />
+                              </div>
+                              <div className="col-span-4 md:col-span-2">
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    placeholder="수량"
+                                    value={task.area}
+                                    onChange={(e) => handleUpdateTask(task.id, 'area', Number(e.target.value))}
+                                    className="w-full text-right bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-semibold focus:ring-1 focus:ring-indigo-500 outline-none"
+                                  />
+                                  <span className="absolute right-8 top-1.5 text-[10px] text-slate-400 pointer-events-none"></span>
+                                </div>
+                              </div>
+                              <div className="col-span-4 md:col-span-2">
+                                <input
+                                  type="number"
+                                  placeholder="단가"
+                                  value={task.unit_price}
+                                  onChange={(e) => handleUpdateTask(task.id, 'unit_price', Number(e.target.value))}
+                                  className="w-full text-right bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-semibold focus:ring-1 focus:ring-indigo-500 outline-none"
+                                />
+                              </div>
+                              <div className="col-span-4 md:col-span-2 text-right">
+                                <div className="text-xs font-bold text-slate-700 mt-1.5">
+                                  {formatCurrency(task.area * task.unit_price)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Add Item Button only for "기타" category */}
+                        {category === "기타" && (
+                          <button
+                            onClick={() => {
+                              const newTask: RemodelingTask = {
+                                id: crypto.randomUUID(),
+                                isChecked: true,
+                                category: "기타",
+                                item_name: "추가 항목",
+                                description: "",
+                                unit_price: 0,
+                                area: 0
+                              };
+                              setTasks([...tasks, newTask]);
+                            }}
+                            className="w-full py-2 border border-dashed border-slate-300 rounded text-slate-500 text-xs hover:bg-slate-50 hover:text-indigo-600 transition"
+                          >
+                            + 항목 추가
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div className="mb-4 pl-10">
-                    <textarea value={task.description} onChange={(e) => handleUpdateTask(task.id, 'description', e.target.value)} rows={2} placeholder="세부 사양 입력" className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm text-slate-600 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none resize-none" />
-                  </div>
-                  <div className="pl-10 bg-indigo-50/50 rounded-lg p-3 flex flex-wrap items-center gap-3 md:gap-6 border border-indigo-100/50">
-                    <div className="flex-1 min-w-[120px]">
-                      <label className="text-xs font-semibold text-indigo-400 mb-1 block">수량 (평/식)</label>
-                      <input type="number" value={task.area} onChange={(e) => handleUpdateTask(task.id, 'area', Number(e.target.value))} className="w-full text-right bg-white border border-indigo-200 rounded px-2 py-1.5 font-semibold text-indigo-900 focus:ring-2 focus:ring-indigo-500 outline-none" />
-                    </div>
-                    <div className="flex-1 min-w-[150px]">
-                      <label className="text-xs font-semibold text-indigo-400 mb-1 block">단가</label>
-                      <input type="number" value={task.unit_price} onChange={(e) => handleUpdateTask(task.id, 'unit_price', Number(e.target.value))} className="w-full text-right bg-white border border-indigo-200 rounded px-2 py-1.5 font-semibold text-indigo-900 focus:ring-2 focus:ring-indigo-500 outline-none" />
-                    </div>
-                    <div className="flex-1 min-w-[150px] text-right">
-                      <label className="text-xs font-semibold text-indigo-400 mb-1 block">합계</label>
-                      <div className="text-lg font-bold text-indigo-700">{formatCurrency(task.area * task.unit_price)}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
 
