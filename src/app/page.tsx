@@ -11,12 +11,50 @@ import { Project, RemodelingTask, UploadedImage, TASK_CATEGORIES, TaskCategory, 
 // Constants
 const PYUNG_TO_M2 = 3.30578;
 
-// Initial Data
+// Initial Data Structure
 const INITIAL_TASKS: RemodelingTask[] = [
-  { id: "1", isChecked: true, category: "가설/철거", item_name: "기본 철거 및 폐기물", description: "문틀, 마루, 욕실 등 전체 철거", unit_price: 150000, area: 32 },
-  { id: "2", isChecked: true, category: "바닥(마감)", item_name: "강마루 (전체)", description: "구정마루 그랜드 텍스쳐", unit_price: 110000, area: 32 },
-  { id: "3", isChecked: true, category: "벽(마감)", item_name: "실크 벽지 (전체)", description: "LG 베스띠 / 신한 스케치", unit_price: 65000, area: 32 },
-  { id: "4", isChecked: true, category: "전기(2차)", item_name: "LED 조명 및 스위치", description: "르그랑 스위치/콘센트", unit_price: 45000, area: 32 },
+  // 1. 설계
+  { id: "d1", isChecked: false, category: "설계", item_name: "기획 설계", description: "", unit_price: 0, area: 0 },
+  { id: "d2", isChecked: false, category: "설계", item_name: "기본 설계", description: "", unit_price: 0, area: 0 },
+  { id: "d3", isChecked: false, category: "설계", item_name: "실시 설계", description: "", unit_price: 0, area: 0 },
+  { id: "d4", isChecked: false, category: "설계", item_name: "시설 설계", description: "", unit_price: 0, area: 0 },
+
+  // 2. 가설/철거
+  { id: "dem1", isChecked: false, category: "가설/철거", item_name: "가설 및 철거 공사", description: "", unit_price: 0, area: 0 },
+
+  // 3. 파사드
+  { id: "fac1", isChecked: false, category: "파사드", item_name: "파사드 공사", description: "", unit_price: 0, area: 0 },
+
+  // 4. 바닥
+  { id: "fl1", isChecked: false, category: "바닥", item_name: "기초 공사", description: "", unit_price: 0, area: 0 },
+  { id: "fl2", isChecked: false, category: "바닥", item_name: "마감재 공사", description: "", unit_price: 0, area: 0 },
+
+  // 5. 벽
+  { id: "wl1", isChecked: false, category: "벽", item_name: "기초 공사", description: "", unit_price: 0, area: 0 },
+  { id: "wl2", isChecked: false, category: "벽", item_name: "마감재 공사", description: "", unit_price: 0, area: 0 },
+
+  // 6. 천장
+  { id: "cl1", isChecked: false, category: "천장", item_name: "기초 공사", description: "", unit_price: 0, area: 0 },
+  { id: "cl2", isChecked: false, category: "천장", item_name: "마감재 공사", description: "", unit_price: 0, area: 0 },
+  { id: "cl3", isChecked: false, category: "천장", item_name: "조명 기구", description: "", unit_price: 0, area: 0 },
+
+  // 7. 전기/통신
+  { id: "el1", isChecked: false, category: "전기/통신", item_name: "1차 조성", description: "", unit_price: 0, area: 0 },
+  { id: "el2", isChecked: false, category: "전기/통신", item_name: "2차 조성", description: "", unit_price: 0, area: 0 },
+
+  // 8. 설비
+  { id: "pl1", isChecked: false, category: "설비", item_name: "1차 조성", description: "", unit_price: 0, area: 0 },
+  { id: "pl2", isChecked: false, category: "설비", item_name: "2차 조성", description: "", unit_price: 0, area: 0 },
+
+  // 9. 소방
+  { id: "fi1", isChecked: false, category: "소방", item_name: "1차 조성", description: "", unit_price: 0, area: 0 },
+  { id: "fi2", isChecked: false, category: "소방", item_name: "2차 조성", description: "", unit_price: 0, area: 0 },
+
+  // 10. 사인/가구
+  { id: "fu1", isChecked: false, category: "사인/가구/주방/위생", item_name: "통합 공사", description: "", unit_price: 0, area: 0 },
+
+  // 11. 기타
+  { id: "etc1", isChecked: false, category: "기타", item_name: "기타 비용", description: "", unit_price: 0, area: 0 },
 ];
 
 export default function RenewalEstimatePage() {
@@ -68,29 +106,10 @@ export default function RenewalEstimatePage() {
   };
 
   // Handlers
-  const handleAddTask = () => {
-    const newTask: RemodelingTask = {
-      id: crypto.randomUUID(),
-      isChecked: true,
-      category: "기타",
-      item_name: "새로운 공정",
-      unit_price: 0,
-      area: typeof baseArea === "number" ? baseArea : 0, // Auto-inherit base area
-      description: ""
-    }
-    setTasks([...tasks, newTask]);
-  };
-
   const handleUpdateTask = (id: string, field: keyof RemodelingTask, value: any) => {
     setTasks(tasks.map(t =>
       t.id === id ? { ...t, [field]: value } : t
     ));
-  };
-
-  const handleDeleteTask = (id: string) => {
-    if (confirm("정말 이 공정을 삭제하시겠습니까?")) {
-      setTasks(tasks.filter(t => t.id !== id));
-    }
   };
 
   const handleSyncArea = () => {
