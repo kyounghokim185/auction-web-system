@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useMemo, ChangeEvent } from "react";
-import { Plus, Trash2, Calculator, Save, RefreshCw, FileText, CheckSquare, Square, Camera, Image as ImageIcon, X } from "lucide-react";
+import { useState, useMemo, ChangeEvent, useRef } from "react";
+import { Plus, Trash2, Calculator, Save, RefreshCw, FileText, CheckSquare, Square, Camera, Image as ImageIcon, X, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 // Constants
 const PYUNG_TO_M2 = 3.30578;
@@ -41,6 +43,10 @@ export default function RenewalEstimatePage() {
   const [tasks, setTasks] = useState<RemodelingTask[]>(INITIAL_TASKS);
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  // Refs
+  const printRef = useRef<HTMLDivElement>(null);
 
   // Calculate Total
   const totalCost = useMemo(() => {
@@ -93,7 +99,7 @@ export default function RenewalEstimatePage() {
     }
   };
 
-  // Image Upload Handler
+  // Image Upload
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
 
@@ -110,6 +116,10 @@ export default function RenewalEstimatePage() {
         .upload(filePath, file);
 
       if (uploadError) {
+        // Handle missing env vars gracefully in frontend if they are missing
+        if (uploadError.message.includes("is required")) {
+          throw new Error("Supabase 설정이 완료되지 않았습니다. .env.local 파일을 확인해주세요.");
+        }
         throw uploadError;
       }
 
@@ -118,31 +128,65 @@ export default function RenewalEstimatePage() {
         .getPublicUrl(filePath);
 
       setImages([...images, { url: publicUrl, path: filePath }]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading image:', error);
-      alert('사진 업로드 중 오류가 발생했습니다.');
+      alert(`사진 업로드 중 오류가 발생했습니다: ${error.message || "알 수 없는 오류"}`);
     } finally {
       setIsUploading(false);
-      // Reset input
       e.target.value = '';
     }
   };
 
   const handleDeleteImage = async (path: string) => {
     if (!confirm("사진을 삭제하시겠습니까?")) return;
+    setImages(images.filter(img => img.path !== path));
+  };
+
+  // PDF Export
+  const handleDownloadPdf = async () => {
+    if (!printRef.current) return;
+    setIsGeneratingPdf(true);
 
     try {
-      // Optimistic update
-      setImages(images.filter(img => img.path !== path));
+      const canvas = await html2canvas(printRef.current, {
+        scale: 2, // Higher quality
+        useCORS: true, // For images
+        logging: false,
+        backgroundColor: "#ffffff"
+      } as any);
 
-      // Actually delete from storage (optional per requirement but good practice)
-      // Note: If you want to keep files, you can skip this. 
-      // But usually we want to delete.
-      // const { error } = await supabase.storage.from('site-photos').remove([path]);
-      // if (error) console.error(error);
+      const imgData = canvas.toDataURL("image/png");
+
+      // A4 Size settings
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // First page
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      // Multi-page logic if content is long
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+
+      pdf.save(`견적서_${new Date().toISOString().slice(0, 10)}.pdf`);
 
     } catch (error) {
-      console.error('Error deleting image:', error);
+      console.error("PDF Gen Error:", error);
+      alert("PDF 생성 중 오류가 발생했습니다.");
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -160,9 +204,8 @@ export default function RenewalEstimatePage() {
 
       <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-        {/* Main Content: Left Side */}
+        {/* Left Side: Editor */}
         <div className="lg:col-span-8 flex flex-col gap-8">
-
           {/* 1. Base Project Info */}
           <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
@@ -220,58 +263,27 @@ export default function RenewalEstimatePage() {
             </div>
             <div className="space-y-4">
               {tasks.map((task) => (
-                <div
-                  key={task.id}
-                  className={cn(
-                    "relative border rounded-lg p-5 transition-all duration-200",
-                    task.isChecked
-                      ? "bg-white border-indigo-100 shadow-sm hover:shadow-md ring-1 ring-indigo-500/10"
-                      : "bg-slate-50 border-slate-200 opacity-70 grayscale-[0.5]"
-                  )}
-                >
-                  {/* Task Row Content (Simplified for brevity, assuming same structure as before) */}
+                <div key={task.id} className={cn("relative border rounded-lg p-5 transition-all duration-200", task.isChecked ? "bg-white border-indigo-100 shadow-sm hover:shadow-md ring-1 ring-indigo-500/10" : "bg-slate-50 border-slate-200 opacity-70 grayscale-[0.5]")}>
                   <div className="flex items-start gap-4 mb-4">
                     <div className="pt-1">
-                      <button
-                        onClick={() => handleUpdateTask(task.id, 'isChecked', !task.isChecked)}
-                        className={cn(
-                          "transition-colors",
-                          task.isChecked ? "text-indigo-600" : "text-slate-300 hover:text-slate-400"
-                        )}
-                      >
+                      <button onClick={() => handleUpdateTask(task.id, 'isChecked', !task.isChecked)} className={cn("transition-colors", task.isChecked ? "text-indigo-600" : "text-slate-300 hover:text-slate-400")}>
                         {task.isChecked ? <CheckSquare className="w-6 h-6" /> : <Square className="w-6 h-6" />}
                       </button>
                     </div>
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div className="md:col-span-1">
                         <label className="text-xs font-semibold text-slate-500 mb-1 block">공종</label>
-                        <input
-                          type="text"
-                          value={task.category}
-                          onChange={(e) => handleUpdateTask(task.id, 'category', e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-sm font-semibold text-slate-800 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none"
-                        />
+                        <input type="text" value={task.category} onChange={(e) => handleUpdateTask(task.id, 'category', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-sm font-semibold text-slate-800 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none" />
                       </div>
                       <div className="md:col-span-3">
                         <label className="text-xs font-semibold text-slate-500 mb-1 block">항목명</label>
-                        <input
-                          type="text"
-                          value={task.item_name}
-                          onChange={(e) => handleUpdateTask(task.id, 'item_name', e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-sm font-bold text-slate-900 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none"
-                        />
+                        <input type="text" value={task.item_name} onChange={(e) => handleUpdateTask(task.id, 'item_name', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-sm font-bold text-slate-900 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none" />
                       </div>
                     </div>
                     <button onClick={() => handleDeleteTask(task.id)} className="text-slate-300 hover:text-red-500 transition-colors p-1"><Trash2 className="w-4 h-4" /></button>
                   </div>
                   <div className="mb-4 pl-10">
-                    <textarea
-                      value={task.description}
-                      onChange={(e) => handleUpdateTask(task.id, 'description', e.target.value)}
-                      rows={2}
-                      placeholder="세부 사양 입력"
-                      className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm text-slate-600 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none resize-none"
-                    />
+                    <textarea value={task.description} onChange={(e) => handleUpdateTask(task.id, 'description', e.target.value)} rows={2} placeholder="세부 사양 입력" className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm text-slate-600 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none resize-none" />
                   </div>
                   <div className="pl-10 bg-indigo-50/50 rounded-lg p-3 flex flex-wrap items-center gap-3 md:gap-6 border border-indigo-100/50">
                     <div className="flex-1 min-w-[120px]">
@@ -294,109 +306,134 @@ export default function RenewalEstimatePage() {
 
           {/* 3. Global Memo */}
           <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <span className="w-1.5 h-6 bg-slate-500 rounded-full block"></span>
-              산출 근거 및 특이사항
-            </h2>
-            <textarea
-              value={globalMemo}
-              onChange={(e) => setGlobalMemo(e.target.value)}
-              placeholder="내용을 입력하세요."
-              className="w-full h-32 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-colors resize-y leading-relaxed"
-            />
+            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="w-1.5 h-6 bg-slate-500 rounded-full block"></span>산출 근거 및 특이사항</h2>
+            <textarea value={globalMemo} onChange={(e) => setGlobalMemo(e.target.value)} placeholder="내용을 입력하세요." className="w-full h-32 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-colors resize-y leading-relaxed" />
           </section>
 
-          {/* 4. Site Photos Upload */}
+          {/* 4. Site Photos */}
           <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <span className="w-1.5 h-6 bg-rose-500 rounded-full block"></span>
-                현장 사진 대장
-              </h2>
-              <label className={cn(
-                "inline-flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 rounded-lg hover:bg-rose-100 transition-colors font-semibold text-sm cursor-pointer border border-rose-100",
-                isUploading && "opacity-50 cursor-not-allowed"
-              )}>
-                {isUploading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Camera className="w-4 h-4" />
-                )}
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><span className="w-1.5 h-6 bg-rose-500 rounded-full block"></span>현장 사진 대장</h2>
+              <label className={cn("inline-flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 rounded-lg hover:bg-rose-100 transition-colors font-semibold text-sm cursor-pointer border border-rose-100", isUploading && "opacity-50 cursor-not-allowed")}>
+                {isUploading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
                 <span>{isUploading ? "업로드 중..." : "사진 첨부"}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
-                  disabled={isUploading}
-                />
+                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploading} />
               </label>
             </div>
-
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {images.map((img, index) => (
                 <div key={index} className="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                  <img
-                    src={img.url}
-                    alt={`Site photo ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={img.url} alt={`Site photo ${index + 1}`} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <button
-                      onClick={() => handleDeleteImage(img.path)}
-                      className="p-2 bg-white/20 hover:bg-red-500/80 rounded-full text-white backdrop-blur-sm transition-colors"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent text-white text-xs truncate">
-                    {new Date().toLocaleDateString()}
+                    <button onClick={() => handleDeleteImage(img.path)} className="p-2 bg-white/20 hover:bg-red-500/80 rounded-full text-white backdrop-blur-sm transition-colors"><Trash2 className="w-5 h-5" /></button>
                   </div>
                 </div>
               ))}
-              {images.length === 0 && (
-                <div className="col-span-full py-8 text-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200 flex flex-col items-center justify-center gap-2">
-                  <ImageIcon className="w-8 h-8 opacity-50" />
-                  <span>등록된 사진이 없습니다.</span>
-                </div>
-              )}
+              {images.length === 0 && <div className="col-span-full py-8 text-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200 flex flex-col items-center justify-center gap-2"><ImageIcon className="w-8 h-8 opacity-50" /><span>등록된 사진이 없습니다.</span></div>}
             </div>
           </section>
-
         </div>
 
-        {/* Sidebar: Sticky Summary */}
+        {/* Right Side: Sticky Summary */}
         <div className="lg:col-span-4">
           <div className="sticky top-24 space-y-4">
             <div className="bg-slate-900 rounded-2xl shadow-xl overflow-hidden text-white p-6">
-              <h3 className="text-lg font-bold text-slate-100 border-b border-slate-700 pb-4 mb-6">
-                견적 종합 요약
-              </h3>
+              <h3 className="text-lg font-bold text-slate-100 border-b border-slate-700 pb-4 mb-6">견적 종합 요약</h3>
               <div className="space-y-4 mb-8">
-                <div className="flex justify-between items-center text-slate-400 text-sm">
-                  <span>총 공정 수</span>
-                  <span className="font-medium text-white">{tasks.length} 개</span>
-                </div>
-                <div className="flex justify-between items-center text-slate-400 text-sm">
-                  <span>첨부 사진</span>
-                  <span className="font-medium text-white">{images.length} 장</span>
-                </div>
+                <div className="flex justify-between items-center text-slate-400 text-sm"><span>총 공정 수</span><span className="font-medium text-white">{tasks.length} 개</span></div>
+                <div className="flex justify-between items-center text-slate-400 text-sm"><span>첨부 사진</span><span className="font-medium text-white">{images.length} 장</span></div>
               </div>
               <div className="bg-slate-800/50 rounded-lg p-4 mb-6 border border-slate-700">
                 <p className="text-xs text-slate-400 mb-1">총 예상 소요 비용</p>
-                <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-indigo-400 break-all">
-                  {formatCurrency(totalCost)}
-                </div>
+                <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-indigo-400 break-all">{formatCurrency(totalCost)}</div>
               </div>
-              <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2">
-                <Save className="w-5 h-5" />
-                견적서 저장
+              <button
+                onClick={handleDownloadPdf}
+                disabled={isGeneratingPdf}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isGeneratingPdf ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                {isGeneratingPdf ? "PDF 생성 중..." : "PDF 견적서 다운로드"}
               </button>
             </div>
           </div>
         </div>
 
       </main>
+
+      {/* Hidden Print Template */}
+      <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
+        <div ref={printRef} className="w-[210mm] min-h-[297mm] bg-white p-[15mm] text-slate-900">
+          <div className="text-center border-b-2 border-slate-900 pb-6 mb-8">
+            <h1 className="text-3xl font-bold tracking-tight mb-2">리뉴얼 공사 예가 산출서</h1>
+            <p className="text-slate-500 text-sm">Renewal Construction Preliminary Estimate</p>
+          </div>
+
+          <div className="flex justify-between items-end mb-8">
+            <div className="text-sm space-y-1">
+              <p><span className="font-bold w-20 inline-block">산출일자:</span> {new Date().toLocaleDateString()}</p>
+              <p><span className="font-bold w-20 inline-block">기준면적:</span> {baseArea || 0} 평 ({getM2(baseArea)} m²)</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-slate-500 mb-1">총 예상 소요 금액 (VAT 별도)</p>
+              <p className="text-2xl font-bold text-indigo-700">{formatCurrency(totalCost)}</p>
+            </div>
+          </div>
+
+          <div className="mb-8">
+            <table className="w-full text-sm text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-100 border-t-2 border-slate-900">
+                  <th className="py-3 px-2 border-b font-bold w-[15%]">공종(카테고리)</th>
+                  <th className="py-3 px-2 border-b font-bold w-[25%]">항목 / 내용</th>
+                  <th className="py-3 px-2 border-b font-bold w-[20%]">세부사양</th>
+                  <th className="py-3 px-2 border-b font-bold w-[10%] text-right">수량</th>
+                  <th className="py-3 px-2 border-b font-bold w-[15%] text-right">단가</th>
+                  <th className="py-3 px-2 border-b font-bold w-[15%] text-right">합계</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tasks.filter(t => t.isChecked).map((task) => (
+                  <tr key={task.id} className="border-b border-slate-200">
+                    <td className="py-3 px-2 font-medium">{task.category}</td>
+                    <td className="py-3 px-2 font-bold">{task.item_name}</td>
+                    <td className="py-3 px-2 text-slate-500 text-xs">{task.description || "-"}</td>
+                    <td className="py-3 px-2 text-right">{task.area}</td>
+                    <td className="py-3 px-2 text-right text-slate-600">{task.unit_price.toLocaleString()}</td>
+                    <td className="py-3 px-2 text-right font-bold">{(task.area * task.unit_price).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-slate-50 border-t-2 border-slate-900">
+                  <td colSpan={5} className="py-4 px-2 text-right font-bold">총 합계</td>
+                  <td className="py-4 px-2 text-right font-bold text-lg">{formatCurrency(totalCost)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {globalMemo && (
+            <div className="mb-8 border rounded-lg p-6 bg-slate-50">
+              <h3 className="font-bold border-b border-slate-200 pb-2 mb-3 text-sm text-slate-700">산출 근거 및 비고</h3>
+              <p className="text-sm whitespace-pre-wrap leading-relaxed">{globalMemo}</p>
+            </div>
+          )}
+
+          {images.length > 0 && (
+            <div>
+              <h3 className="font-bold border-b-2 border-slate-900 pb-2 mb-6 text-sm text-slate-700">현장 사진 대장</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {images.map((img, i) => (
+                  <div key={i} className="aspect-video bg-slate-100 rounded overflow-hidden border">
+                    <img src={img.url} className="w-full h-full object-contain" alt="site" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
