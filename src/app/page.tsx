@@ -199,22 +199,7 @@ export default function RenewalEstimatePage() {
     }
   }, [searchParams, isAuthenticated]);
 
-  const searchParams = useSearchParams();
 
-  // Load from URL if present
-  useEffect(() => {
-    const loadId = searchParams.get("loadId");
-    if (loadId && isAuthenticated) {
-      // Fetch specific project
-      const fetchAndLoad = async () => {
-        const { data, error } = await supabase.from('projects').select('*').eq('id', loadId).single();
-        if (data && !error) {
-          loadProject(data as any);
-        }
-      };
-      fetchAndLoad();
-    }
-  }, [searchParams, isAuthenticated]);
 
   // Image Upload
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
