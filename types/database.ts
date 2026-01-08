@@ -39,7 +39,7 @@ export type UploadedImage = {
 // Fixed Categories
 export const TASK_CATEGORIES = [
   "설계",
-  "가설/철거",
+  "가설 및 철거",
   "파사드",
   "바닥",
   "벽",

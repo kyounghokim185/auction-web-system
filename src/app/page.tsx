@@ -15,29 +15,29 @@ const PYUNG_TO_M2 = 3.30578;
 // Initial Data Structure
 const INITIAL_TASKS: RemodelingTask[] = [
   // 1. 설계
-  { id: "d1", isChecked: false, category: "설계", item_name: "기획 설계", description: "", unit_price: 0, area: 0 },
-  { id: "d2", isChecked: false, category: "설계", item_name: "기본 설계", description: "", unit_price: 0, area: 0 },
-  { id: "d3", isChecked: false, category: "설계", item_name: "실시 설계", description: "", unit_price: 0, area: 0 },
-  { id: "d4", isChecked: false, category: "설계", item_name: "시설 설계", description: "", unit_price: 0, area: 0 },
+  { id: "d1", isChecked: false, category: "설계", item_name: "기획", description: "", unit_price: 0, area: 0 },
+  { id: "d2", isChecked: false, category: "설계", item_name: "기본", description: "", unit_price: 0, area: 0 },
+  { id: "d3", isChecked: false, category: "설계", item_name: "실시", description: "", unit_price: 0, area: 0 },
+  { id: "d4", isChecked: false, category: "설계", item_name: "시설", description: "", unit_price: 0, area: 0 },
 
-  // 2. 가설/철거
-  { id: "dem1", isChecked: false, category: "가설/철거", item_name: "가설 및 철거 공사", description: "", unit_price: 0, area: 0 },
+  // 2. 가설 및 철거
+  { id: "dem1", isChecked: false, category: "가설 및 철거", item_name: "가설 및 철거 공사", description: "", unit_price: 0, area: 0 },
 
   // 3. 파사드
   { id: "fac1", isChecked: false, category: "파사드", item_name: "파사드 공사", description: "", unit_price: 0, area: 0 },
 
   // 4. 바닥
-  { id: "fl1", isChecked: false, category: "바닥", item_name: "기초 공사", description: "", unit_price: 0, area: 0 },
-  { id: "fl2", isChecked: false, category: "바닥", item_name: "마감재 공사", description: "", unit_price: 0, area: 0 },
+  { id: "fl1", isChecked: false, category: "바닥", item_name: "기초공사", description: "", unit_price: 0, area: 0 },
+  { id: "fl2", isChecked: false, category: "바닥", item_name: "마감재", description: "", unit_price: 0, area: 0 },
 
   // 5. 벽
-  { id: "wl1", isChecked: false, category: "벽", item_name: "기초 공사", description: "", unit_price: 0, area: 0 },
-  { id: "wl2", isChecked: false, category: "벽", item_name: "마감재 공사", description: "", unit_price: 0, area: 0 },
+  { id: "wl1", isChecked: false, category: "벽", item_name: "기초공사", description: "", unit_price: 0, area: 0 },
+  { id: "wl2", isChecked: false, category: "벽", item_name: "마감재", description: "", unit_price: 0, area: 0 },
 
   // 6. 천장
-  { id: "cl1", isChecked: false, category: "천장", item_name: "기초 공사", description: "", unit_price: 0, area: 0 },
-  { id: "cl2", isChecked: false, category: "천장", item_name: "마감재 공사", description: "", unit_price: 0, area: 0 },
-  { id: "cl3", isChecked: false, category: "천장", item_name: "조명 기구", description: "", unit_price: 0, area: 0 },
+  { id: "cl1", isChecked: false, category: "천장", item_name: "기초공사", description: "", unit_price: 0, area: 0 },
+  { id: "cl2", isChecked: false, category: "천장", item_name: "마감재", description: "", unit_price: 0, area: 0 },
+  { id: "cl3", isChecked: false, category: "천장", item_name: "조명기구", description: "", unit_price: 0, area: 0 },
 
   // 7. 전기/통신
   { id: "el1", isChecked: false, category: "전기/통신", item_name: "1차 조성", description: "", unit_price: 0, area: 0 },
