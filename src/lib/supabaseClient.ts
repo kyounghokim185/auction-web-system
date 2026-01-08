@@ -1,13 +1,12 @@
+import { createClient } from '@supabase/supabase-js';
 
-import { createClient } from '@supabase/supabase-js'
+const supabaseUrl = "https://ycncymbshtnvohgawsdh.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InljbmN5bWJzaHRudm9oZ2F3c2RoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4MjI1MzUsImV4cCI6MjA4MzM5ODUzNX0.lx7i1bqm1OuOl1nIVe3HPas0DtBbtMttM_ZwdWNdtvQ";
 
-// Provide dummy values to satisfy createClient during build time if envs are missing
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co"
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-key"
+/* 
+if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('Supabase 환경 변수가 누락되었습니다. .env.local을 확인하세요.');
+} 
+*/
 
-// Warning instead of Error to allow build to pass without env vars (for Vercel build phase if secrets are missing)
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    console.warn('Missing Supabase environment variables. Upload features may not work.')
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
