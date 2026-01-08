@@ -110,27 +110,37 @@ export default function RenewalEstimatePage() {
     const filePath = `${fileName}`;
 
     setIsUploading(true);
+    console.log(`[Upload Debug] Starting upload for file: ${fileName} to bucket: 'site-photos'`);
 
     try {
-      const { error: uploadError } = await supabase.storage
+      // Log env var status
+      console.log("[Upload Debug] Supabase URL exists:", !!process.env.NEXT_PUBLIC_SUPABASE_URL);
+
+      const { data, error: uploadError } = await supabase.storage
         .from('site-photos')
         .upload(filePath, file);
 
       if (uploadError) {
-        if (uploadError.message.includes("is required")) {
-          throw new Error("Supabase 설정이 완료되지 않았습니다. .env.local 파일을 확인해주세요.");
-        }
-        throw uploadError;
+        console.error("[Upload Debug] Raw Supabase Error:", uploadError);
+        throw uploadError; // Throw raw error to be caught below
       }
+
+      console.log("[Upload Debug] Upload success, data:", data);
 
       const { data: { publicUrl } } = supabase.storage
         .from('site-photos')
         .getPublicUrl(filePath);
 
+      console.log("[Upload Debug] Public URL:", publicUrl);
+
       setImages([...images, { url: publicUrl, path: filePath }]);
     } catch (error: any) {
-      console.error('Error uploading image:', error);
-      alert(`사진 업로드 중 오류가 발생했습니다: ${error.message || "알 수 없는 오류"}`);
+      console.error('[Upload Debug] Final Error Block:', error);
+
+      // Detailed Alert for the user
+      const errorMessage = error.message || "알 수 없는 오류";
+      const errorDetails = JSON.stringify(error, null, 2);
+      alert(`[사진 업로드 실패]\n\n에러 메시지: ${errorMessage}\n\n상세 정보: ${errorDetails}`);
     } finally {
       setIsUploading(false);
       e.target.value = '';
