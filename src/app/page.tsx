@@ -13,7 +13,8 @@ import {
   X,
   BrainCircuit,
   RefreshCw,
-  Lock
+  Lock,
+  Download
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
@@ -414,20 +415,21 @@ function RenewalEstimateContent() {
         pdf.setTextColor(79, 70, 229);
         pdf.text("IPARK MALL DESIGN TEAM", 135, yPos + 32);
 
-        // Specific Footer
+        // Specific Footer (AI Page)
         pdf.setFontSize(10);
         pdf.setTextColor(150, 150, 150);
         pdf.text("Ipark Mall Interior Part / Specialized Renovation Team", 20, 280);
       }
 
-      // Footer Branding
+      // Footer Branding (All Pages)
       const totalPages = pdf.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
         pdf.setFontSize(8);
         pdf.setTextColor(150, 150, 150);
         pdf.text("본 견적은 KOSIS(통계청) 실시간 건설공사비지수 및 임금실태조사 데이터를 기반으로 산출되었습니다.", 20, pdf.internal.pageSize.getHeight() - 10);
-        pdf.text("Gwangju Renewal Corp.", pdf.internal.pageSize.getWidth() - 50, pdf.internal.pageSize.getHeight() - 10);
+        // Changed from Gwangju Renewal Corp. to Ipark Mall Interior Part
+        pdf.text("Ipark Mall Interior Part / Specialized Renovation Team", pdf.internal.pageSize.getWidth() - 90, pdf.internal.pageSize.getHeight() - 10);
       }
 
       const safeName = projectInfo.name.replace(/[^a-zA-Z0-9가-힣\s]/g, "").trim() || "견적서";
