@@ -21,10 +21,10 @@ const INITIAL_TASKS: RemodelingTask[] = [
   { id: "d4", isChecked: false, category: "설계", item_name: "시설", description: "", unit_price: 0, area: 0 },
 
   // 2. 가설 및 철거
-  { id: "dem1", isChecked: false, category: "가설 및 철거", item_name: "가설 및 철거 공사", description: "", unit_price: 0, area: 0 },
+  { id: "dem1", isChecked: false, category: "가설 및 철거", item_name: "가설 및 철거", description: "", unit_price: 0, area: 0 },
 
   // 3. 파사드
-  { id: "fac1", isChecked: false, category: "파사드", item_name: "파사드 공사", description: "", unit_price: 0, area: 0 },
+  { id: "fac1", isChecked: false, category: "파사드", item_name: "파사드", description: "", unit_price: 0, area: 0 },
 
   // 4. 바닥
   { id: "fl1", isChecked: false, category: "바닥", item_name: "기초공사", description: "", unit_price: 0, area: 0 },
@@ -52,10 +52,10 @@ const INITIAL_TASKS: RemodelingTask[] = [
   { id: "fi2", isChecked: false, category: "소방", item_name: "2차 조성", description: "", unit_price: 0, area: 0 },
 
   // 10. 사인/가구
-  { id: "fu1", isChecked: false, category: "사인/가구/주방/위생", item_name: "통합 공사", description: "", unit_price: 0, area: 0 },
+  { id: "fu1", isChecked: false, category: "사인/가구/주방/위생", item_name: "사인/가구/주방/위생", description: "", unit_price: 0, area: 0 },
 
   // 11. 기타
-  { id: "etc1", isChecked: false, category: "기타", item_name: "기타 비용", description: "", unit_price: 0, area: 0 },
+  { id: "etc1", isChecked: false, category: "기타", item_name: "기타", description: "", unit_price: 0, area: 0 },
 ];
 
 function RenewalEstimateContent() {
