@@ -2,7 +2,28 @@
 
 import { useState, useMemo, ChangeEvent, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, Trash2, Calculator, Save, RefreshCw, FileText, CheckSquare, Square, Camera, Image as ImageIcon, X, Download, Lock, FolderOpen } from "lucide-react";
+import {
+  FileText,
+  FolderOpen,
+  Save,
+  Plus,
+  Trash2,
+  Camera,
+  Download,
+  Check,
+  Building2,
+  Calendar,
+  DollarSign,
+  Maximize,
+  ArrowRight,
+  RefreshCw,
+  Lock,
+  CheckSquare, // Added CheckSquare
+  Square, // Added Square
+  ImageIcon, // Added ImageIcon
+  X, // Added X for modal close
+  BrainCircuit // Added BrainCircuit for AI
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import html2canvas from "html2canvas";
@@ -60,10 +81,10 @@ const INITIAL_TASKS: RemodelingTask[] = [
 const TEMPLATE_CONFIG: Record<string, readonly string[]> = {
   "인테리어": TASK_CATEGORIES, // Show All
   "원상복구": ["가설 및 철거", "바닥", "벽", "천장", "전기/통신", "설비", "소방", "기타"],
-  "인허가 공사": ["설계", "전기/통신", "설비", "소방", "기타"] // Corrected name
+  "인허가 시설공사": ["설계", "전기/통신", "설비", "소방", "기타"] // Fixed Name "인허가 시설공사"
 };
 
-// Base Unit Prices (KRW per pyung/unit) - Approximations for Algo
+// Base Unit Prices
 const BASE_UNIT_PRICES: Record<string, number> = {
   "설계": 100000,
   "가설 및 철거": 150000,
@@ -118,6 +139,7 @@ function RenewalEstimateContent() {
   const [isProjectListOpen, setIsProjectListOpen] = useState(false);
   const [savedProjects, setSavedProjects] = useState<Project[]>([]);
   const [isKosisLoading, setIsKosisLoading] = useState(false); // Data loading state
+  const [isAnalyzing, setIsAnalyzing] = useState(false); // AI Analysis state
 
   // Refs
   // Add data attribute for onclone selection
@@ -402,6 +424,66 @@ function RenewalEstimateContent() {
       alert(msg);
     } finally {
       setIsGeneratingPdf(false);
+    }
+  };
+
+  // AI Analysis Logic
+  const handleAnalyzeImage = async () => {
+    if (images.length === 0) {
+      alert("분석할 현장 사진을 먼저 업로드해주세요.");
+      return;
+    }
+
+    if (!confirm("AI 비전이 현장 사진을 정밀 분석하여 필요한 공종을 자동으로 체크합니다.\n진행하시겠습니까?")) return;
+
+    setIsAnalyzing(true);
+    try {
+      // Analyze the LATEST image
+      const targetImage = images[images.length - 1];
+      const res = await fetch('/api/analyze-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: targetImage.url })
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message);
+
+      console.log("AI Analysis Result:", result);
+
+      let updatedCount = 0;
+
+      // Auto-check categories based on recommendation
+      // Recommendations: string[] e.g. ["가설 및 철거", "바닥"]
+      const newTasks = tasks.map(t => {
+        if (result.recommendations && result.recommendations.includes(t.category)) {
+          // If recommend included this category, we check the FIRST item of that category if none checked?
+          // Or just ensure group is open?
+          // Let's mark specific relevant items as checked if they are generic
+          if (!t.isChecked) updatedCount++;
+          return { ...t, isChecked: true };
+        }
+
+        // Special logic for Demolition
+        if (result.needs_demolition && t.category === "가설 및 철거") {
+          if (!t.isChecked) updatedCount++;
+          return { ...t, isChecked: true };
+        }
+        return t;
+      });
+
+      setTasks(newTasks);
+      // Also update global memo
+      const analysisMemo = `[AI 분석 결과]\n- 철거 필요: ${result.needs_demolition ? 'O' : 'X'}\n- 바닥 상태: ${result.floor_condition}\n- 벽 상태: ${result.wall_condition}\n- 예측 평수: ${result.estimated_pyung || '??'}평\n`;
+      setGlobalMemo(prev => prev + "\n" + analysisMemo);
+
+      alert(`[AI 분석 완료]\n현장 정밀 분석이 끝났습니다.\n관련 공종 ${updatedCount}개가 자동으로 선택되었습니다.`);
+
+    } catch (e: any) {
+      console.error(e);
+      alert(`AI 분석 실패: ${e.message}`);
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -794,6 +876,14 @@ function RenewalEstimateContent() {
                   <span>{isUploading ? "업로드 중..." : "사진 첨부"}</span>
                   <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploading} />
                 </label>
+                <button
+                  onClick={handleAnalyzeImage}
+                  disabled={isAnalyzing || images.length === 0}
+                  className={cn("inline-flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-semibold text-sm border border-violet-600 shadow-sm", (isAnalyzing || images.length === 0) && "opacity-50 cursor-not-allowed")}
+                >
+                  {isAnalyzing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4" />}
+                  <span>AI 정밀 분석</span>
+                </button>
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -948,6 +1038,22 @@ function RenewalEstimateContent() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Analyzing Overlay */}
+      {isAnalyzing && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
+          <div className="bg-white/10 p-4 rounded-full mb-6 animate-pulse">
+            <BrainCircuit className="w-16 h-16 text-violet-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">AI가 현장을 정밀 분석 중입니다...</h2>
+          <p className="text-violet-200 text-sm font-medium">건축물 대장 및 KOSIS 데이터와 대조 중 (약 10초 소요)</p>
+          <div className="mt-8 flex gap-2">
+            <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+            <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+            <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce"></span>
           </div>
         </div>
       )}
