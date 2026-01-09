@@ -80,11 +80,14 @@ function RenewalEstimateContent() {
   const [kosisData, setKosisData] = useState<any>(null);
   const [projectInfo, setProjectInfo] = useState({ id: "", name: "", author: "", start_date: "", duration: "", notes: "" });
   const [baseArea, setBaseArea] = useState<number | "">("");
-  const [globalMemo, setGlobalMemo] = useState<string>("");
+  // Removed unused globalMemo
+  // const [globalMemo, setGlobalMemo] = useState<string>(""); 
   const [tasks, setTasks] = useState<RemodelingTask[]>(INITIAL_TASKS);
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [selectedImageCategory, setSelectedImageCategory] = useState<ImageCategory>("기타");
+  // Removed unused selectedImageCategory
+  // const [selectedImageCategory, setSelectedImageCategory] = useState<ImageCategory>("기타");
+  // Defaulting uploads to '기타' or basic logic since category selector was removed in UI
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isProjectListOpen, setIsProjectListOpen] = useState(false);
   const [savedProjects, setSavedProjects] = useState<Project[]>([]);
@@ -147,7 +150,8 @@ function RenewalEstimateContent() {
       const { error: uploadError } = await supabase.storage.from('site-photos').upload(filePath, file);
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('site-photos').getPublicUrl(filePath);
-      setImages([...images, { url: publicUrl, path: filePath, category: selectedImageCategory }]);
+      // Default category '기타' since selector is hidden in new design
+      setImages([...images, { url: publicUrl, path: filePath, category: "기타" }]);
     } catch (error: any) { alert(`업로드 실패: ${error.message}`); } finally { setIsUploading(false); }
   };
 
@@ -177,10 +181,13 @@ function RenewalEstimateContent() {
         pdf.setFontSize(20);
         pdf.text("종합 기술 검토 의견", 20, 30);
         pdf.setFontSize(12);
-        pdf.text(`1. 현장 상태: 바닥(${aiResult.floor_condition}), 벽면(${aiResult.wall_condition})`, 20, 50);
-        pdf.text(`2. 예상 평수: ${aiResult.estimated_pyung}평`, 20, 65);
-        const adviceLines = pdf.splitTextToSize(`3. 전문가 제언: ${aiResult.expert_advice}`, 170);
+        pdf.text(`1. 현장 상태: 바닥(${aiResult.floor_condition || '-'}), 벽면(${aiResult.wall_condition || '-'})`, 20, 50);
+        pdf.text(`2. 예상 평수: ${aiResult.estimated_pyung || '?'}평`, 20, 65);
+        const adviceLines = pdf.splitTextToSize(`3. 전문가 제언: ${aiResult.expert_advice || '-'}`, 170);
         pdf.text(adviceLines, 20, 80);
+
+        // Final Footer Branding
+        pdf.setFontSize(10);
         pdf.setTextColor(150, 150, 150);
         pdf.text("Ipark Mall Interior Part / Specialized Renovation Team", 20, 280);
       }

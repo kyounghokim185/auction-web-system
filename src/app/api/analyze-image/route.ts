@@ -20,6 +20,7 @@ export async function POST(request: Request) {
         const base64Image = Buffer.from(arrayBuffer).toString('base64');
 
         // 2. Call Gemini 1.5 Flash API (Using v1 as requested)
+        // Fixed: Ensure exact model name and version
         const apiEndpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
         const promptText = `
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
             contents: [{
                 parts: [
                     { text: promptText },
-                    { inline_data: { mime_type: "image/jpeg", data: base64Image } } // Assuming JPEG/PNG, API handles generic well
+                    { inline_data: { mime_type: "image/jpeg", data: base64Image } }
                 ]
             }]
         };
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
 
         // Parse Response
         const textResponse = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!textResponse) throw new Error("No text response from Gemini");
 
         // Clean markdown manually if needed
         const cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
