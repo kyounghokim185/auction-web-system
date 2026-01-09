@@ -6,29 +6,20 @@ import {
   FileText,
   FolderOpen,
   Save,
-  Plus,
   Trash2,
   Camera,
-  Download,
-  Check,
-  Building2,
-  Calendar,
-  DollarSign,
-  Maximize,
-  ArrowRight,
+  CheckSquare,
+  ImageIcon,
+  X,
+  BrainCircuit,
   RefreshCw,
-  Lock,
-  CheckSquare, // Added CheckSquare
-  Square, // Added Square
-  ImageIcon, // Added ImageIcon
-  X, // Added X for modal close
-  BrainCircuit // Added BrainCircuit for AI
+  Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { Project, RemodelingTask, UploadedImage, TASK_CATEGORIES, TaskCategory, IMAGE_CATEGORIES, ImageCategory } from "../../types/database";
+import { Project, RemodelingTask, UploadedImage, TASK_CATEGORIES, ImageCategory, IMAGE_CATEGORIES } from "../../types/database";
 
 // Constants
 const PYUNG_TO_M2 = 3.30578;
@@ -78,10 +69,11 @@ const INITIAL_TASKS: RemodelingTask[] = [
   // 11. 기타
   { id: "etc1", isChecked: false, category: "기타", item_name: "기타", description: "", unit_price: 0, area: 0 },
 ];
+
 const TEMPLATE_CONFIG: Record<string, readonly string[]> = {
   "인테리어": TASK_CATEGORIES, // Show All
   "원상복구": ["가설 및 철거", "바닥", "벽", "천장", "전기/통신", "설비", "소방", "기타"],
-  "인허가 공사": ["설계", "전기/통신", "설비", "소방", "기타"] // Fixed Name "인허가 공사"
+  "인허가 공사": ["설계", "전기/통신", "설비", "소방", "기타"]
 };
 
 // Base Unit Prices
@@ -143,7 +135,6 @@ function RenewalEstimateContent() {
   const [aiResult, setAiResult] = useState<any>(null); // Store AI Result
 
   // Refs
-  // Add data attribute for onclone selection
   const printRef = useRef<HTMLDivElement>(null);
 
   // Calculate Total
@@ -189,12 +180,12 @@ function RenewalEstimateContent() {
       const payload = {
         name: projectInfo.name,
         author: projectInfo.author,
-        type: constructionType, // Save Type
+        type: constructionType,
         start_date: projectInfo.start_date || null,
         duration: projectInfo.duration,
         notes: projectInfo.notes,
         base_area: typeof baseArea === 'number' ? baseArea : 0,
-        tasks: tasks as any, // Cast for JSONB
+        tasks: tasks as any,
         images: images as any
       };
 
@@ -202,7 +193,6 @@ function RenewalEstimateContent() {
 
       if (error) throw error;
       alert("성공적으로 저장되었습니다.");
-      // Refresh List if needs
       fetchProjects();
     } catch (e: any) {
       console.error(e);
@@ -221,14 +211,14 @@ function RenewalEstimateContent() {
     if (!confirm("현재 작업 내용을 덮어쓰고 불러오시겠습니까?")) return;
 
     setProjectInfo({
-      id: projectInfo.id, // keep current ID or not? usually DB id
+      id: projectInfo.id,
       name: project.name,
       author: project.author,
       start_date: project.start_date || "",
       duration: project.duration,
       notes: project.notes
     });
-    setConstructionType(project.type || "인테리어"); // Load Type
+    setConstructionType(project.type || "인테리어");
     setBaseArea(project.base_area);
     setTasks(project.tasks);
     setImages(project.images);
@@ -242,11 +232,9 @@ function RenewalEstimateContent() {
 
   const checkInflation = async (dateStr: string, currentTasks: RemodelingTask[]) => {
     try {
-      // 1. Fetch Past Index
       const resPast = await fetch(`/api/kosis?date=${dateStr}`);
       const dataPast = await resPast.json();
 
-      // 2. Fetch Current Index (reuse or fetch)
       const resNow = await fetch(`/api/kosis`);
       const dataNow = await resNow.json();
 
@@ -262,14 +250,12 @@ function RenewalEstimateContent() {
           setTasks(newTasks);
         }
       }
-      // Also save Kosis Data for UI
       setKosisData(dataNow);
     } catch (e) {
       console.error("Inflation Check Failed", e);
     }
   };
 
-  // Load list on mount/open
   useEffect(() => {
     if (isProjectListOpen) {
       fetchProjects();
@@ -278,11 +264,9 @@ function RenewalEstimateContent() {
 
   const searchParams = useSearchParams();
 
-  // Load from URL if present
   useEffect(() => {
     const loadId = searchParams.get("loadId");
     if (loadId && isAuthenticated) {
-      // Fetch specific project
       const fetchAndLoad = async () => {
         const { data, error } = await supabase.from('projects').select('*').eq('id', loadId).single();
         if (data && !error) {
@@ -293,16 +277,13 @@ function RenewalEstimateContent() {
     }
   }, [searchParams, isAuthenticated]);
 
-
-
   // Image Upload
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
 
-    // 1. Strict Env Check
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!supabaseUrl || supabaseUrl.includes("placeholder")) {
-      alert("시스템 오류: Supabase 환경변수가 설정되지 않았습니다.\n.env.local 파일을 확인해주세요.");
+      alert("시스템 오류: Supabase 환경변수가 설정되지 않았습니다.");
       e.target.value = '';
       return;
     }
@@ -310,7 +291,6 @@ function RenewalEstimateContent() {
     const file = e.target.files[0];
     const fileExt = file.name.split('.').pop();
 
-    // Map Korean Category to English Folder Name
     const folderMap: Record<string, string> = {
       "설계": "design",
       "가설 및 철거": "demolition",
@@ -325,10 +305,8 @@ function RenewalEstimateContent() {
       "기타": "etc"
     };
     const folderName = folderMap[selectedImageCategory] || "etc";
-
-    // Path includes Category Folder
     const fileName = `${folderName}/${Date.now()}_${Math.random()}.${fileExt}`;
-    const filePath = `${fileName}`; // bucket/category/file
+    const filePath = `${fileName}`;
 
     setIsUploading(true);
 
@@ -339,9 +317,7 @@ function RenewalEstimateContent() {
         .from(bucketName)
         .upload(filePath, file);
 
-      if (uploadError) {
-        throw uploadError;
-      }
+      if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
         .from(bucketName)
@@ -349,7 +325,7 @@ function RenewalEstimateContent() {
 
       setImages([...images, { url: publicUrl, path: filePath, category: selectedImageCategory }]);
     } catch (error: any) {
-      console.error('[Upload Debug] Final Error Block:', error);
+      console.error(error);
       alert(`[사진 업로드 실패]\n${error.message}`);
     } finally {
       setIsUploading(false);
@@ -376,19 +352,13 @@ function RenewalEstimateContent() {
         scale: 2,
         useCORS: true,
         logging: true,
-        backgroundColor: "#ffffff",
-        onclone: (clonedDoc: Document) => {
-          // Optional: You can manipulate clonedDoc here if needed
-          console.log("DOM Cloned for Print");
-        }
-      } as any);
+        backgroundColor: "#ffffff"
+      });
 
       const imgData = canvas.toDataURL("image/png");
-
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * pdfWidth) / canvas.width;
 
@@ -405,26 +375,25 @@ function RenewalEstimateContent() {
         heightLeft -= pdfHeight;
       }
 
-      // AI Expert Report Page (Append if exists)
+      // AI Expert Report Page
       if (aiResult) {
         pdf.addPage();
         pdf.setFontSize(24);
         pdf.setTextColor(0, 0, 0);
-        pdf.text("종합 기술 검토 의견", 20, 30); // New Title
+        pdf.text("종합 기술 검토 의견", 20, 30);
 
         pdf.setFontSize(14);
-        pdf.setTextColor(75, 85, 99); // Slate-600
+        pdf.setTextColor(75, 85, 99);
         pdf.text("Comprehensive Technical Review Opinion", 20, 38);
 
         pdf.setLineWidth(0.5);
         pdf.line(20, 45, 190, 45);
 
-        // Content
         let yPos = 60;
 
         const addItem = (label: string, value: string) => {
           pdf.setFontSize(12);
-          pdf.setTextColor(100, 116, 139); // Label color
+          pdf.setTextColor(100, 116, 139);
           pdf.text(label, 20, yPos);
 
           pdf.setFontSize(14);
@@ -439,13 +408,13 @@ function RenewalEstimateContent() {
         addItem("3. 베테랑 소장의 시공 주의사항", aiResult.expert_advice || "특이사항 없음");
 
         // Stamp
-        pdf.setDrawColor(79, 70, 229); // Indigo
+        pdf.setDrawColor(79, 70, 229);
         pdf.rect(130, yPos + 20, 60, 20);
         pdf.setFontSize(10);
         pdf.setTextColor(79, 70, 229);
         pdf.text("IPARK MALL DESIGN TEAM", 135, yPos + 32);
 
-        // Specific Footer for AI Page
+        // Specific Footer
         pdf.setFontSize(10);
         pdf.setTextColor(150, 150, 150);
         pdf.text("Ipark Mall Interior Part / Specialized Renovation Team", 20, 280);
@@ -466,9 +435,7 @@ function RenewalEstimateContent() {
 
     } catch (error: any) {
       console.error("PDF Generation Failed:", error);
-      let msg = "PDF 생성 중 오류가 발생했습니다.";
-      if (error?.message) msg += `\n(${error.message})`;
-      alert(msg);
+      alert("PDF 생성 중 오류가 발생했습니다.");
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -496,7 +463,6 @@ function RenewalEstimateContent() {
 
     setIsAnalyzing(true);
     try {
-      // Analyze the LATEST image
       const targetImage = images[images.length - 1];
       const res = await fetch('/api/analyze-image', {
         method: 'POST',
@@ -507,22 +473,12 @@ function RenewalEstimateContent() {
       const result = await res.json();
       if (!res.ok) throw new Error(result.message);
 
-      console.log("AI Analysis Result:", result);
-
       let updatedCount = 0;
-
-      // Auto-check categories based on recommendation
-      // Recommendations: string[] e.g. ["가설 및 철거", "바닥"]
       const newTasks = tasks.map(t => {
         if (result.recommendations && result.recommendations.includes(t.category)) {
-          // If recommend included this category, we check the FIRST item of that category if none checked?
-          // Or just ensure group is open?
-          // Let's mark specific relevant items as checked if they are generic
           if (!t.isChecked) updatedCount++;
           return { ...t, isChecked: true };
         }
-
-        // Special logic for Demolition
         if (result.needs_demolition && t.category === "가설 및 철거") {
           if (!t.isChecked) updatedCount++;
           return { ...t, isChecked: true };
@@ -531,8 +487,7 @@ function RenewalEstimateContent() {
       });
 
       setTasks(newTasks);
-      setAiResult(result); // Save full result
-      // Also update global memo
+      setAiResult(result);
       const analysisMemo = `[AI 분석 결과]\n- 철거 필요: ${result.needs_demolition ? 'O' : 'X'}\n- 바닥 상태: ${result.floor_condition}\n- 벽 상태: ${result.wall_condition}\n- 예측 평수: ${result.estimated_pyung || '??'}평\n- 전문가 제언: ${result.expert_advice}\n`;
       setGlobalMemo(prev => prev + "\n" + analysisMemo);
 
@@ -546,39 +501,30 @@ function RenewalEstimateContent() {
     }
   };
 
-  // KOSIS Data Application
   const handleApplyKosisData = async () => {
-    console.log("KOSIS 데이터 호출 시작"); // Debug Log
     if (!confirm("통계청 최신 데이터를 불러와 단가를 갱신하시겠습니까? (기존 값 변경됨)")) return;
 
     setIsKosisLoading(true);
     try {
       const response = await fetch('/api/kosis');
       const data = await response.json();
-      console.log("KOSIS 응답 데이터:", data);
-
       const multiplier = (data.index || 100) / 100;
 
       const newTasks = tasks.map(t => {
-        // 1. Check Labor Mapping first
         let newPrice = 0;
         const laborKey = LABOR_MAPPING[t.category];
         if (laborKey && data.labor_costs && data.labor_costs[laborKey]) {
           newPrice = data.labor_costs[laborKey];
         } else {
-          // 2. Fallback to Index Multiplier
           const base = BASE_UNIT_PRICES[t.category] || 100000;
           newPrice = Math.round((base * multiplier) / 1000) * 1000;
         }
-
-        // Only update if currently 0 or we want to overwrite all? 
-        // User said "automatically fill", implying overwrite.
         return { ...t, unit_price: newPrice };
       });
 
       setTasks(newTasks);
       setKosisData(data);
-      alert(`[통계청 데이터 적용 완료]\n${data.source === 'kosis_api' ? '실시간 데이터' : '내부 지수'}가 적용되었습니다.\n건설공사비지수: ${data.index}`);
+      alert(`[통계청 데이터 적용 완료]\n${data.source === 'kosis_api' ? '실시간 데이터' : '내부 지수'}가 적용되었습니다.`);
 
     } catch (e) {
       console.error("KOSIS Fetch Error:", e);
@@ -588,7 +534,6 @@ function RenewalEstimateContent() {
     }
   };
 
-  // Authentication Guard
   if (!isAuthenticated) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
@@ -607,21 +552,8 @@ function RenewalEstimateContent() {
               alert("비밀번호가 일치하지 않습니다.");
             }
           }}>
-            <input
-              type="password"
-              value={passwordInput}
-              onChange={(e) => setPasswordInput(e.target.value)}
-              placeholder="비밀번호 4자리"
-              className="w-full text-center text-2xl tracking-widest px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              autoFocus
-              maxLength={4}
-            />
-            <button
-              type="submit"
-              className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition"
-            >
-              접속하기
-            </button>
+            <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} placeholder="비밀번호 4자리" className="w-full text-center text-2xl tracking-widest px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" autoFocus maxLength={4} />
+            <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition">접속하기</button>
           </form>
         </div>
       </div>
@@ -630,22 +562,14 @@ function RenewalEstimateContent() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
-      {/* Header */}
       <header className="bg-white border-b sticky top-0 z-20 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 text-indigo-700">
             <FileText className="w-6 h-6" />
             <h1 className="font-bold text-xl tracking-tight hidden md:block">리뉴얼 견적 시스템</h1>
           </div>
-
           <div className="flex items-center gap-2">
-            <input
-              type="text"
-              placeholder="공사명 입력 (예: 압구정 현대 32평)"
-              value={projectInfo.name}
-              onChange={(e) => setProjectInfo({ ...projectInfo, name: e.target.value })}
-              className="hidden md:block w-64 px-3 py-1.5 border rounded text-sm bg-slate-50 focus:bg-white transition"
-            />
+            <input type="text" placeholder="공사명 입력 (예: 압구정 현대 32평)" value={projectInfo.name} onChange={(e) => setProjectInfo({ ...projectInfo, name: e.target.value })} className="hidden md:block w-64 px-3 py-1.5 border rounded text-sm bg-slate-50 focus:bg-white transition" />
             <button onClick={() => window.location.href = '/dashboard'} className="flex items-center gap-1 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 text-sm font-semibold border border-indigo-100">
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">대시보드</span>
@@ -658,37 +582,24 @@ function RenewalEstimateContent() {
               <Save className="w-4 h-4" />
               <span className="hidden sm:inline">저장</span>
             </button>
-            <button
-              onClick={handleApplyKosisData}
-              disabled={isKosisLoading}
-              className="flex items-center gap-1 px-3 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 text-sm font-bold shadow-sm disabled:opacity-50"
-            >
+            <button onClick={handleApplyKosisData} disabled={isKosisLoading} className="flex items-center gap-1 px-3 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 text-sm font-bold shadow-sm disabled:opacity-50">
               <RefreshCw className={cn("w-4 h-4", isKosisLoading && "animate-spin")} />
               <span className="hidden sm:inline">KOSIS 단가 불러오기</span>
             </button>
-            <button
-              onClick={handleAnalyzeImage}
-              disabled={isAnalyzing}
-              className={cn("flex items-center gap-1 px-3 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-semibold text-sm border border-violet-600 shadow-sm", isAnalyzing && "opacity-50")}
-            >
+            <button onClick={handleAnalyzeImage} disabled={isAnalyzing} className={cn("flex items-center gap-1 px-3 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-semibold text-sm border border-violet-600 shadow-sm", isAnalyzing && "opacity-50")}>
               {isAnalyzing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4" />}
               <span className="hidden sm:inline">AI 정밀 분석</span>
             </button>
-            <button
-              onClick={handleTestAI}
-              className="flex items-center gap-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-bold shadow-sm"
-            >
+            <button onClick={handleTestAI} className="flex items-center gap-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-bold shadow-sm">
               <span className="hidden sm:inline">AI 연결 테스트</span>
             </button>
           </div>
         </div>
-      </header >
+      </header>
 
       <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Editor Content */}
         <div className="lg:col-span-8 flex flex-col gap-8">
 
-          {/* 0. Project Details (New Section) */}
           <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
               <span className="w-1.5 h-6 bg-slate-800 rounded-full block"></span>
@@ -713,55 +624,31 @@ function RenewalEstimateContent() {
               </div>
             </div>
           </section>
-          {/* ... (Previous editor sections retained) ... */}
-          {/* 1. Base Project Info */}
+
           <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
               <span className="w-1.5 h-6 bg-indigo-600 rounded-full block"></span>
               프로젝트 기본 정보
             </h2>
-            {/* 0.5 Template Selector & KOSIS Button */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
               <div className="flex gap-2">
                 {Object.keys(TEMPLATE_CONFIG).map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => setConstructionType(type)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg font-bold text-sm transition-all shadow-sm",
-                      constructionType === type
-                        ? "bg-indigo-600 text-white shadow-indigo-200"
-                        : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                    )}
-                  >
+                  <button key={type} onClick={() => setConstructionType(type)} className={cn("px-3 py-1.5 rounded-lg font-bold text-sm transition-all shadow-sm", constructionType === type ? "bg-indigo-600 text-white shadow-indigo-200" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50")}>
                     {type}
                   </button>
                 ))}
               </div>
-              <button
-                onClick={handleApplyKosisData}
-                disabled={isKosisLoading}
-                className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-bold shadow-sm disabled:opacity-50"
-              >
+              <button onClick={handleApplyKosisData} disabled={isKosisLoading} className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-bold shadow-sm disabled:opacity-50">
                 <RefreshCw className={cn("w-4 h-4", isKosisLoading && "animate-spin")} />
                 <span>통계청 최신 단가 적용</span>
               </button>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  기준 공급 면적 (평)
-                </label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">기준 공급 면적 (평)</label>
                 <div className="flex items-center gap-3">
                   <div className="relative flex-1">
-                    <input
-                      type="number"
-                      value={baseArea}
-                      onChange={(e) => setBaseArea(e.target.value === "" ? "" : Number(e.target.value))}
-                      className="block w-full rounded-md border border-slate-300 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-lg font-bold text-slate-900 placeholder:font-normal"
-                      placeholder="Ex: 32"
-                    />
+                    <input type="number" value={baseArea} onChange={(e) => setBaseArea(e.target.value === "" ? "" : Number(e.target.value))} className="block w-full rounded-md border border-slate-300 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-lg font-bold text-slate-900 placeholder:font-normal" placeholder="Ex: 32" />
                     <span className="absolute right-4 top-3 text-slate-400 font-medium text-sm">평</span>
                   </div>
                   <div className="bg-slate-100 px-4 py-2.5 rounded-md border border-slate-200 text-slate-600 font-medium min-w-[100px] text-center">
@@ -770,10 +657,7 @@ function RenewalEstimateContent() {
                 </div>
                 <p className="mt-2 text-xs text-slate-500 flex justify-between">
                   <span>* 1평 = {PYUNG_TO_M2}m² 기준 환산</span>
-                  <button
-                    onClick={handleSyncArea}
-                    className="text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1"
-                  >
+                  <button onClick={handleSyncArea} className="text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1">
                     <RefreshCw className="w-3 h-3" />
                     전체 공정에 평수 적용
                   </button>
@@ -782,7 +666,6 @@ function RenewalEstimateContent() {
             </div>
           </section>
 
-          {/* 2. Task List (Accordion Style) */}
           <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -790,389 +673,270 @@ function RenewalEstimateContent() {
                 공종별 산출 내역
               </h2>
             </div>
-
             <div className="space-y-3">
               {TASK_CATEGORIES.map((category) => {
-                // Filter based on Template
-                if (!TEMPLATE_CONFIG[constructionType].includes(category)) return null;
+                const config = TEMPLATE_CONFIG[constructionType] || [];
+                if (!config.includes(category)) return null;
 
                 const categoryTasks = tasks.filter(t => t.category === category);
-                // "기타" 카테고리는 항상 보이게 하거나, 초기 데이터에 없으면 안보이게 처리
-                if (categoryTasks.length === 0 && category !== "기타") return null;
-
-                const isGroupChecked = categoryTasks.some(t => t.isChecked);
-                const hasActiveValue = categoryTasks.some(t => t.area > 0 || t.unit_price > 0);
-                const groupTotal = categoryTasks.reduce((sum, t) => sum + (t.isChecked ? t.area * t.unit_price : 0), 0);
+                if (categoryTasks.length === 0) return null;
 
                 return (
-                  <div key={category} className={cn("border rounded-lg transition-all duration-200 overflow-hidden", isGroupChecked ? "border-indigo-200 bg-white shadow-sm ring-1 ring-indigo-500/20" : "border-slate-200 bg-slate-50")}>
-                    {/* Header Bar */}
-                    <div className={cn("flex items-center gap-4 p-4 cursor-pointer transition-colors", hasActiveValue ? "bg-indigo-50/50" : "")} onClick={() => {
-                      // Toggle Group Logic: Toggle ALL tasks in this category based on the *inverse* of the group state
-                      // If group is checked (some checked), we likely want to uncheck all.
-                      // If group is unchecked (none checked), we likely want to check all.
-                      // Let's simplify: Click header -> toggle all based on whether majority are checked?
-                      // Better: Always check all if unchecked. Always uncheck all if checked.
-                      const newCheckedState = !isGroupChecked;
-                      const ids = categoryTasks.map(t => t.id);
-                      setTasks(prev => prev.map(t => ids.includes(t.id) ? { ...t, isChecked: newCheckedState } : t));
-                    }}>
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => {
-                            const newCheckedState = !isGroupChecked;
-                            const ids = categoryTasks.map(t => t.id);
-                            setTasks(prev => prev.map(t => ids.includes(t.id) ? { ...t, isChecked: newCheckedState } : t));
-                          }}
-                          className={cn("transition-colors", isGroupChecked ? "text-indigo-600" : "text-slate-400 hover:text-slate-500")}
-                        >
-                          {isGroupChecked ? <CheckSquare className="w-6 h-6" /> : <Square className="w-6 h-6" />}
-                        </button>
-                      </div>
-                      <div className="flex-1 font-bold text-slate-800 flex justify-between items-center">
-                        <span>{category}</span>
-                        {isGroupChecked && groupTotal > 0 && (
-                          <span className="text-indigo-600 text-sm">{formatCurrency(groupTotal)}</span>
-                        )}
-                      </div>
+                  <div key={category} className="border border-slate-200 rounded-lg overflow-hidden">
+                    <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+                      <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                        {category} <span className="text-xs font-normal text-slate-500 bg-white px-2 py-0.5 rounded border ml-2">{categoryTasks.length}개 항목</span>
+                      </h3>
                     </div>
-
-                    {/* Body (Expanded) */}
-                    {isGroupChecked && (
-                      <div className="p-4 pt-0 space-y-3 bg-white border-t border-slate-100">
-                        {categoryTasks.map((task) => (
-                          <div key={task.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 mt-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-                            {/* Label */}
-                            <div className="md:col-span-3 font-semibold text-slate-700 text-sm flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                              {task.item_name}
+                    <div className="divide-y divide-slate-100">
+                      {categoryTasks.map((task) => (
+                        <div key={task.id} className={cn("px-4 py-3 transition-colors flex items-center gap-4 group", task.isChecked ? "bg-indigo-50/50" : "hover:bg-slate-50")}>
+                          <div className="pt-1">
+                            <button onClick={() => handleUpdateTask(task.id, "isChecked", !task.isChecked)} className={cn("w-5 h-5 rounded border flex items-center justify-center transition-all", task.isChecked ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300 text-transparent hover:border-indigo-400")}>
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                            <div className="md:col-span-3 font-medium text-slate-700">{task.item_name}</div>
+                            <div className="md:col-span-4">
+                              <input type="text" value={task.description} onChange={(e) => handleUpdateTask(task.id, "description", e.target.value)} placeholder="세부 사양 입력" className="w-full text-sm border-0 border-b border-slate-200 focus:border-indigo-500 bg-transparent py-1 px-0 focus:ring-0 placeholder:text-slate-400" />
                             </div>
-
-                            {/* Inputs */}
-                            <div className="md:col-span-9 grid grid-cols-12 gap-2">
-                              <div className="col-span-12 md:col-span-6">
-                                <input
-                                  type="text"
-                                  placeholder="상세 규격 및 비고"
-                                  value={task.description}
-                                  onChange={(e) => handleUpdateTask(task.id, 'description', e.target.value)}
-                                  className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 outline-none"
-                                />
-                              </div>
-                              <div className="col-span-4 md:col-span-2">
-                                <div className="relative">
-                                  <input
-                                    type="number"
-                                    placeholder="수량"
-                                    value={task.area}
-                                    onChange={(e) => handleUpdateTask(task.id, 'area', Number(e.target.value))}
-                                    className="w-full text-right bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-semibold focus:ring-1 focus:ring-indigo-500 outline-none"
-                                  />
-                                  <span className="absolute right-8 top-1.5 text-[10px] text-slate-400 pointer-events-none"></span>
-                                </div>
-                              </div>
-                              <div className="col-span-4 md:col-span-2">
-                                <div className="flex flex-col">
-                                  <input
-                                    type="number"
-                                    placeholder="단가"
-                                    value={task.unit_price}
-                                    onChange={(e) => handleUpdateTask(task.id, 'unit_price', Number(e.target.value))}
-                                    className="w-full text-right bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-semibold focus:ring-1 focus:ring-indigo-500 outline-none"
-                                  />
-                                  {/* KOSIS Suggestion */}
-                                  {kosisData && kosisData.labor_costs && LABOR_MAPPING[task.category] && (
-                                    <button
-                                      onClick={() => handleUpdateTask(task.id, 'unit_price', kosisData.labor_costs[LABOR_MAPPING[task.category]])}
-                                      className="text-[10px] text-green-600 text-right mt-1 hover:underline text-xs flex items-center justify-end gap-1"
-                                    >
-                                      <span>⚡ 표준: {formatCurrency(kosisData.labor_costs[LABOR_MAPPING[task.category]])}</span>
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="col-span-4 md:col-span-2 text-right">
-                                <div className="text-xs font-bold text-slate-700 mt-1.5">
-                                  {formatCurrency(task.area * task.unit_price)}
-                                </div>
+                            <div className="md:col-span-2 relative">
+                              <input type="number" value={task.area} onChange={(e) => handleUpdateTask(task.id, "area", Number(e.target.value))} className="w-full text-sm border rounded px-2 py-1.5 text-right font-medium text-slate-700 focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="0" />
+                              <span className="absolute right-8 top-1.5 text-xs text-slate-400 pointer-events-none"></span>
+                            </div>
+                            <div className="md:col-span-3 text-right">
+                              <div className="text-xs text-slate-400 mb-0.5">단가: {task.unit_price.toLocaleString()}</div>
+                              <div className={cn("font-bold", task.isChecked ? "text-indigo-600" : "text-slate-400")}>
+                                {(task.area * task.unit_price).toLocaleString()} 원
                               </div>
                             </div>
                           </div>
-                        ))}
-
-                        {/* Add Item Button for ALL categories */}
-                        <button
-                          onClick={() => {
-                            const newTask: RemodelingTask = {
-                              id: crypto.randomUUID(),
-                              isChecked: true, // Auto checked in group
-                              category: category, // Use current category
-                              item_name: "추가 항목",
-                              description: "",
-                              unit_price: 0,
-                              area: 0
-                            };
-                            setTasks([...tasks, newTask]);
-                          }}
-                          className="w-full py-2 border border-dashed border-slate-300 rounded text-slate-500 text-xs hover:bg-slate-50 hover:text-indigo-600 transition"
-                        >
-                          + 상세 항목 추가
-                        </button>
-                      </div>
-                    )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 );
               })}
             </div>
           </section>
 
-          {/* 3. Global Memo */}
           <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="w-1.5 h-6 bg-slate-500 rounded-full block"></span>산출 근거 및 특이사항</h2>
+            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="w-1.5 h-6 bg-slate-800 rounded-full block"></span>산출 근거 및 비고</h2>
             <textarea value={globalMemo} onChange={(e) => setGlobalMemo(e.target.value)} placeholder="내용을 입력하세요." className="w-full h-32 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-colors resize-y leading-relaxed" />
           </section>
 
-          {/* 4. Site Photos */}
-          <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><span className="w-1.5 h-6 bg-rose-500 rounded-full block"></span>현장 사진 대장</h2>
-              <div className="flex items-center gap-2">
-                <select
-                  value={selectedImageCategory}
-                  onChange={(e) => setSelectedImageCategory(e.target.value as ImageCategory)}
-                  className="px-2 py-2 border rounded-lg text-sm bg-rose-50 border-rose-100 text-rose-800 font-bold focus:ring-2 focus:ring-rose-500 outline-none"
-                >
-                  {IMAGE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                </select>
-                <label className={cn("inline-flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 rounded-lg hover:bg-rose-100 transition-colors font-semibold text-sm cursor-pointer border border-rose-100", isUploading && "opacity-50 cursor-not-allowed")}>
-                  {isUploading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-                  <span>{isUploading ? "업로드 중..." : "사진 첨부"}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploading} />
-                </label>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {images.map((img, index) => (
-                <div key={index} className="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                  <img src={img.url} alt={`Site photo ${index + 1}`} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <button onClick={() => handleDeleteImage(img.path)} className="p-2 bg-white/20 hover:bg-red-500/80 rounded-full text-white backdrop-blur-sm transition-colors"><Trash2 className="w-5 h-5" /></button>
-                  </div>
+          <div className="space-y-6">
+            <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><span className="w-1.5 h-6 bg-rose-500 rounded-full block"></span>현장 사진 대장</h2>
+                <div className="flex gap-2">
+                  <select value={selectedImageCategory} onChange={(e) => setSelectedImageCategory(e.target.value as ImageCategory)} className="px-2 py-2 border rounded-lg text-sm bg-rose-50 border-rose-100 text-rose-800 font-bold outline-none">
+                    {IMAGE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                  <label className="inline-flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 rounded-lg hover:bg-rose-100 transition-colors font-semibold text-sm cursor-pointer border border-rose-100">
+                    <Camera className="w-4 h-4" />
+                    <span>사진 첨부</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                  </label>
                 </div>
-              ))}
-              {images.length === 0 && <div className="col-span-full py-8 text-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200 flex flex-col items-center justify-center gap-2"><ImageIcon className="w-8 h-8 opacity-50" /><span>등록된 사진이 없습니다.</span></div>}
-            </div>
-          </section>
-        </div>
-        {/* AI Smart Diagnosis & Expert Guide Section (Moved Here) */}
-        {
-          aiResult && (
-            <section className="bg-gradient-to-br from-violet-50 to-indigo-50 rounded-xl shadow-sm border border-violet-100 p-6 animate-in fade-in slide-in-from-top-4">
-              <h2 className="text-lg font-bold text-violet-800 mb-4 flex items-center gap-2">
-                <BrainCircuit className="w-6 h-6" />
-                AI 스마트 진단 및 전문가 가이드
-              </h2>
-              <div className="grid grid-cols-1 gap-4">
-                {/* Row 1: Summary & Estimate */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white p-4 rounded-lg border border-violet-100 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-500 mb-2">1. 현장 상태 요약</h3>
-                    <ul className="space-y-1 text-sm text-slate-700">
-                      <li><span className="font-semibold text-slate-900">철거 여부:</span> {aiResult.needs_demolition ? "필요함 (AI 감지)" : "양호"}</li>
-                      <li><span className="font-semibold text-slate-900">바닥 상태:</span> {aiResult.floor_condition}</li>
-                      <li><span className="font-semibold text-slate-900">벽면 상태:</span> {aiResult.wall_condition}</li>
-                    </ul>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg border border-violet-100 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-500 mb-2">2. 예상 평수 및 물량</h3>
-                    <div className="flex items-center items-center h-full pb-4">
-                      <span className="text-2xl font-bold text-slate-800">{aiResult.estimated_pyung || "?"}</span>
-                      <span className="text-sm text-slate-500 ml-1">평 (Estimated)</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {images.map((img, index) => (
+                  <div key={index} className="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                    <img src={img.url} alt={`Site photo ${index + 1}`} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button onClick={() => handleDeleteImage(img.path)} className="p-2 bg-white/20 hover:bg-red-500/80 rounded-full text-white backdrop-blur-sm transition-colors"><Trash2 className="w-5 h-5" /></button>
                     </div>
                   </div>
-                </div>
-
-                {/* Row 2: Expert Advice */}
-                <div className="bg-white p-5 rounded-lg border border-violet-100 shadow-sm ring-1 ring-violet-200">
-                  <h3 className="text-sm font-bold text-violet-700 mb-2 flex items-center gap-2">
-                    <CheckSquare className="w-4 h-4" />
-                    3. 베테랑 소장의 시공 주의사항
-                  </h3>
-                  <p className="text-slate-800 leading-relaxed font-medium">
-                    "{aiResult.expert_advice || "특이사항 없습니다. 안전한 시공 되세요."}"
-                  </p>
-                </div>
+                ))}
+                {images.length === 0 && <div className="col-span-full py-8 text-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200 flex flex-col items-center justify-center gap-2"><ImageIcon className="w-8 h-8 opacity-50" /><span>등록된 사진이 없습니다.</span></div>}
               </div>
-            </div>
-              </div>
-            </section >
-          )
-}
-        </div >
+            </section>
 
-  {/* Right Side: Sticky Summary */ }
-  < div className = "lg:col-span-4" >
-    <div className="sticky top-24 space-y-4">
-      <div className="bg-slate-900 rounded-2xl shadow-xl overflow-hidden text-white p-6">
-        <h3 className="text-lg font-bold text-slate-100 border-b border-slate-700 pb-4 mb-6">견적 종합 요약</h3>
-        <div className="space-y-4 mb-8">
-          <div className="flex justify-between items-center text-slate-400 text-sm"><span>총 공정 수</span><span className="font-medium text-white">{tasks.length} 개</span></div>
-          <div className="flex justify-between items-center text-slate-400 text-sm"><span>첨부 사진</span><span className="font-medium text-white">{images.length} 장</span></div>
-        </div>
-        <div className="bg-slate-800/50 rounded-lg p-4 mb-6 border border-slate-700">
-          <p className="text-xs text-slate-400 mb-1">총 예상 소요 비용</p>
-          <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-indigo-400 break-all">{formatCurrency(totalCost)}</div>
-        </div>
-        <button
-          onClick={handleDownloadPdf}
-          disabled={isGeneratingPdf}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isGeneratingPdf ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-          {isGeneratingPdf ? "PDF 생성 중..." : "PDF 견적서 다운로드"}
-        </button>
-      </div>
-    </div>
-  </div >
-      </main >
-
-  {/* Hidden Print Template - Replaced Tailwind Colors with safe Inline HEX */ }
-  < div style = {{ position: "absolute", left: "-9999px", top: 0 }
-}>
-  <div
-    ref={printRef}
-    data-print-target="true"
-    className="w-[210mm] min-h-[297mm] p-[15mm]"
-    style={{ backgroundColor: '#ffffff', color: '#0f172a' }} // Explicit HEX
-  >
-    <div className="text-center pb-6 mb-8" style={{ borderBottom: '2px solid #0f172a' }}>
-      <h1 className="text-3xl font-bold tracking-tight mb-2" style={{ color: '#0f172a' }}>리뉴얼 공사 예가 산출서</h1>
-      <p className="text-sm" style={{ color: '#64748b' }}>Renewal Construction Preliminary Estimate</p>
-    </div>
-
-    <div className="flex justify-between items-end mb-8">
-      <div className="text-sm space-y-1">
-        <p><span className="font-bold w-20 inline-block">산출일자:</span> {new Date().toLocaleDateString()}</p>
-        <p><span className="font-bold w-20 inline-block">기준면적:</span> {baseArea || 0} 평 ({getM2(baseArea)} m²)</p>
-      </div>
-      <div className="text-right">
-        <p className="text-sm mb-1" style={{ color: '#64748b' }}>총 예상 소요 금액 (VAT 별도)</p>
-        <p className="text-2xl font-bold" style={{ color: '#4338ca' }}>{formatCurrency(totalCost)}</p>
-      </div>
-    </div>
-
-    <div className="mb-8">
-      <table className="w-full text-sm text-left border-collapse">
-        <thead>
-          <tr style={{ backgroundColor: '#f1f5f9', borderTop: '2px solid #0f172a' }}>
-            <th className="py-3 px-2 border-b font-bold w-[15%]" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>공종(카테고리)</th>
-            <th className="py-3 px-2 border-b font-bold w-[25%]" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>항목 / 내용</th>
-            <th className="py-3 px-2 border-b font-bold w-[20%]" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>세부사양</th>
-            <th className="py-3 px-2 border-b font-bold w-[10%] text-right" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>수량</th>
-            <th className="py-3 px-2 border-b font-bold w-[15%] text-right" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>단가</th>
-            <th className="py-3 px-2 border-b font-bold w-[15%] text-right" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>합계</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tasks.filter(t => t.isChecked).map((task) => (
-            <tr key={task.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-              <td className="py-3 px-2 font-medium" style={{ color: '#0f172a' }}>{task.category}</td>
-              <td className="py-3 px-2 font-bold" style={{ color: '#0f172a' }}>{task.item_name}</td>
-              <td className="py-3 px-2 text-xs" style={{ color: '#64748b' }}>{task.description || "-"}</td>
-              <td className="py-3 px-2 text-right" style={{ color: '#0f172a' }}>{task.area}</td>
-              <td className="py-3 px-2 text-right" style={{ color: '#475569' }}>{task.unit_price.toLocaleString()}</td>
-              <td className="py-3 px-2 text-right font-bold" style={{ color: '#0f172a' }}>{(task.area * task.unit_price).toLocaleString()}</td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr style={{ backgroundColor: '#f8fafc', borderTop: '2px solid #0f172a' }}>
-            <td colSpan={5} className="py-4 px-2 text-right font-bold" style={{ color: '#0f172a' }}>총 합계</td>
-            <td className="py-4 px-2 text-right font-bold text-lg" style={{ color: '#0f172a' }}>{formatCurrency(totalCost)}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-
-    {globalMemo && (
-      <div className="mb-8 border rounded-lg p-6" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
-        <h3 className="font-bold border-b pb-2 mb-3 text-sm" style={{ color: '#334155', borderColor: '#e2e8f0' }}>산출 근거 및 비고</h3>
-        <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: '#0f172a' }}>{globalMemo}</p>
-      </div>
-    )}
-
-    {images.length > 0 && (
-      <div>
-        <h3 className="font-bold border-b-2 pb-2 mb-6 text-sm" style={{ color: '#334155', borderColor: '#0f172a' }}>현장 사진 대장</h3>
-        <div className="grid grid-cols-2 gap-4">
-          {images.map((img, i) => (
-            <div key={i} className="aspect-video rounded overflow-hidden border" style={{ backgroundColor: '#f1f5f9', borderColor: '#e2e8f0' }}>
-              <img src={img.url} className="w-full h-full object-contain" alt="site" />
-            </div>
-          ))}
-        </div>
-      </div>
-    )}
-  </div>
-      </div >
-  {/* Project List Modal */ }
-{
-  isProjectListOpen && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-        <div className="p-6 border-b flex justify-between items-center bg-slate-50 rounded-t-xl">
-          <h3 className="font-bold text-lg flex items-center gap-2">
-            <FolderOpen className="w-5 h-5 text-indigo-600" />
-            저장된 견적 목록
-          </h3>
-          <button onClick={() => setIsProjectListOpen(false)}><X className="w-5 h-5 text-slate-400 hover:text-slate-600" /></button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-2">
-          {savedProjects.length === 0 ? (
-            <div className="py-12 text-center text-slate-400">저장된 견적이 없습니다.</div>
-          ) : (
-            <div className="space-y-2">
-              {savedProjects.map(proj => (
-                <div key={proj.id} className="group flex items-center justify-between p-4 hover:bg-indigo-50 rounded-lg border border-transparent hover:border-indigo-100 transition cursor-pointer" onClick={() => loadProject(proj)}>
-                  <div>
-                    <div className="font-bold text-slate-800 text-lg mb-1">{proj.name}</div>
-                    <div className="text-xs text-slate-500 flex gap-2">
-                      <span>{new Date(proj.created_at).toLocaleDateString()}</span>
-                      <span>•</span>
-                      <span>{proj.author}</span>
-                      <span>•</span>
-                      <span>{proj.base_area}평</span>
+            {aiResult && (
+              <section className="bg-gradient-to-br from-violet-50 to-indigo-50 rounded-xl shadow-sm border border-violet-100 p-6 animate-in fade-in slide-in-from-top-4">
+                <h2 className="text-lg font-bold text-violet-800 mb-4 flex items-center gap-2">
+                  <BrainCircuit className="w-6 h-6" />
+                  AI 스마트 진단 및 전문가 가이드 (아이파크몰 기술 검토)
+                </h2>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-white p-4 rounded-lg border border-violet-100 shadow-sm">
+                      <h3 className="text-sm font-bold text-slate-500 mb-2">1. 현장 상태 요약</h3>
+                      <ul className="space-y-1 text-sm text-slate-700">
+                        <li><span className="font-semibold text-slate-900">철거 여부:</span> {aiResult.needs_demolition ? "필요함" : "양호"}</li>
+                        <li><span className="font-semibold text-slate-900">바닥 상태:</span> {aiResult.floor_condition}</li>
+                        <li><span className="font-semibold text-slate-900">벽면 상태:</span> {aiResult.wall_condition}</li>
+                      </ul>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg border border-violet-100 shadow-sm">
+                      <h3 className="text-sm font-bold text-slate-500 mb-2">2. 예상 평수 및 물량</h3>
+                      <div className="flex items-center items-center h-full pb-4">
+                        <span className="text-2xl font-bold text-slate-800">{aiResult.estimated_pyung || "?"}</span>
+                        <span className="text-sm text-slate-500 ml-1">평 (Estimated)</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="text-indigo-600 font-bold text-sm opacity-0 group-hover:opacity-100 transition">선택</div>
+                  <div className="bg-white p-5 rounded-lg border border-violet-100 shadow-sm ring-1 ring-violet-200">
+                    <h3 className="text-sm font-bold text-violet-700 mb-2 flex items-center gap-2">
+                      <CheckSquare className="w-4 h-4" />
+                      3. 베테랑 소장의 시공 주의사항
+                    </h3>
+                    <p className="text-slate-800 leading-relaxed font-medium">"{aiResult.expert_advice}"</p>
+                  </div>
                 </div>
-              ))}
+              </section>
+            )}
+          </div>
+        </div>
+
+        <div className="lg:col-span-4">
+          <div className="sticky top-24 space-y-4">
+            <div className="bg-slate-900 rounded-2xl shadow-xl overflow-hidden text-white p-6">
+              <h3 className="text-lg font-bold text-slate-100 border-b border-slate-700 pb-4 mb-6">견적 종합 요약</h3>
+              <div className="space-y-4 mb-8">
+                <div className="flex justify-between items-center text-slate-400 text-sm"><span>총 공정 수</span><span className="font-medium text-white">{tasks.length} 개</span></div>
+                <div className="flex justify-between items-center text-slate-400 text-sm"><span>첨부 사진</span><span className="font-medium text-white">{images.length} 장</span></div>
+              </div>
+              <div className="bg-slate-800/50 rounded-lg p-4 mb-6 border border-slate-700">
+                <p className="text-xs text-slate-400 mb-1">총 예상 소요 비용</p>
+                <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-indigo-400 break-all">{formatCurrency(totalCost)}</div>
+              </div>
+              <button onClick={handleDownloadPdf} disabled={isGeneratingPdf} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                {isGeneratingPdf ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                {isGeneratingPdf ? "PDF 생성 중..." : "PDF 견적서 다운로드"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
+        <div ref={printRef} data-print-target="true" className="w-[210mm] min-h-[297mm] p-[15mm]" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>
+          <div className="text-center pb-6 mb-8" style={{ borderBottom: '2px solid #0f172a' }}>
+            <h1 className="text-3xl font-bold tracking-tight mb-2" style={{ color: '#0f172a' }}>리뉴얼 공사 예가 산출서</h1>
+            <p className="text-sm" style={{ color: '#64748b' }}>Renewal Construction Preliminary Estimate</p>
+          </div>
+
+          <div className="flex justify-between items-end mb-8">
+            <div className="text-sm space-y-1">
+              <p><span className="font-bold w-20 inline-block">산출일자:</span> {new Date().toLocaleDateString()}</p>
+              <p><span className="font-bold w-20 inline-block">기준면적:</span> {baseArea || 0} 평 ({getM2(baseArea)} m²)</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm mb-1" style={{ color: '#64748b' }}>총 예상 소요 금액 (VAT 별도)</p>
+              <p className="text-2xl font-bold" style={{ color: '#4338ca' }}>{formatCurrency(totalCost)}</p>
+            </div>
+          </div>
+
+          <div className="mb-8">
+            <table className="w-full text-sm text-left border-collapse">
+              <thead>
+                <tr style={{ backgroundColor: '#f1f5f9', borderTop: '2px solid #0f172a' }}>
+                  <th className="py-3 px-2 border-b font-bold w-[15%]" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>공종(카테고리)</th>
+                  <th className="py-3 px-2 border-b font-bold w-[25%]" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>항목 / 내용</th>
+                  <th className="py-3 px-2 border-b font-bold w-[20%]" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>세부사양</th>
+                  <th className="py-3 px-2 border-b font-bold w-[10%] text-right" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>수량</th>
+                  <th className="py-3 px-2 border-b font-bold w-[15%] text-right" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>단가</th>
+                  <th className="py-3 px-2 border-b font-bold w-[15%] text-right" style={{ borderColor: '#e2e8f0', color: '#0f172a' }}>합계</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tasks.filter(t => t.isChecked).map((task) => (
+                  <tr key={task.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td className="py-3 px-2 font-medium" style={{ color: '#0f172a' }}>{task.category}</td>
+                    <td className="py-3 px-2 font-bold" style={{ color: '#0f172a' }}>{task.item_name}</td>
+                    <td className="py-3 px-2 text-xs" style={{ color: '#64748b' }}>{task.description || "-"}</td>
+                    <td className="py-3 px-2 text-right" style={{ color: '#0f172a' }}>{task.area}</td>
+                    <td className="py-3 px-2 text-right" style={{ color: '#475569' }}>{task.unit_price.toLocaleString()}</td>
+                    <td className="py-3 px-2 text-right font-bold" style={{ color: '#0f172a' }}>{(task.area * task.unit_price).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ backgroundColor: '#f8fafc', borderTop: '2px solid #0f172a' }}>
+                  <td colSpan={5} className="py-4 px-2 text-right font-bold" style={{ color: '#0f172a' }}>총 합계</td>
+                  <td className="py-4 px-2 text-right font-bold text-lg" style={{ color: '#0f172a' }}>{formatCurrency(totalCost)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {globalMemo && (
+            <div className="mb-8 border rounded-lg p-6" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
+              <h3 className="font-bold border-b pb-2 mb-3 text-sm" style={{ color: '#334155', borderColor: '#e2e8f0' }}>산출 근거 및 비고</h3>
+              <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: '#0f172a' }}>{globalMemo}</p>
+            </div>
+          )}
+
+          {images.length > 0 && (
+            <div>
+              <h3 className="font-bold border-b-2 pb-2 mb-6 text-sm" style={{ color: '#334155', borderColor: '#0f172a' }}>현장 사진 대장</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {images.map((img, i) => (
+                  <div key={i} className="aspect-video rounded overflow-hidden border" style={{ backgroundColor: '#f1f5f9', borderColor: '#e2e8f0' }}>
+                    <img src={img.url} className="w-full h-full object-contain" alt="site" />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
       </div>
-    </div>
-  )
-}
 
-{/* AI Analyzing Overlay */ }
-{
-  isAnalyzing && (
-    <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
-      <div className="bg-white/10 p-4 rounded-full mb-6 animate-pulse">
-        <BrainCircuit className="w-16 h-16 text-violet-400" />
-      </div>
-      <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">AI가 현장을 정밀 분석 중입니다...</h2>
-      <p className="text-violet-200 text-sm font-medium animate-pulse">건축물 대장 및 KOSIS 데이터 대조 중 (약 10초 소요)</p>
-      <div className="mt-8 flex gap-2">
-        <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-        <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-        <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce"></span>
-      </div>
+      {isProjectListOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="p-6 border-b flex justify-between items-center bg-slate-50 rounded-t-xl">
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                <FolderOpen className="w-5 h-5 text-indigo-600" />
+                저장된 견적 목록
+              </h3>
+              <button onClick={() => setIsProjectListOpen(false)}><X className="w-5 h-5 text-slate-400 hover:text-slate-600" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              {savedProjects.length === 0 ? (
+                <div className="py-12 text-center text-slate-400">저장된 견적이 없습니다.</div>
+              ) : (
+                <div className="space-y-2">
+                  {savedProjects.map(proj => (
+                    <div key={proj.id} className="group flex items-center justify-between p-4 hover:bg-indigo-50 rounded-lg border border-transparent hover:border-indigo-100 transition cursor-pointer" onClick={() => loadProject(proj)}>
+                      <div>
+                        <div className="font-bold text-slate-800 text-lg mb-1">{proj.name}</div>
+                        <div className="text-xs text-slate-500 flex gap-2">
+                          <span>{new Date(proj.created_at).toLocaleDateString()}</span>
+                          <span>•</span>
+                          <span>{proj.author}</span>
+                          <span>•</span>
+                          <span>{proj.base_area}평</span>
+                        </div>
+                      </div>
+                      <div className="text-indigo-600 font-bold text-sm opacity-0 group-hover:opacity-100 transition">선택</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAnalyzing && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
+          <div className="bg-white/10 p-4 rounded-full mb-6 animate-pulse">
+            <BrainCircuit className="w-16 h-16 text-violet-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">AI가 현장을 정밀 분석 중입니다...</h2>
+          <p className="text-violet-200 text-sm font-medium animate-pulse">건축물 대장 및 KOSIS 데이터 대조 중 (약 10초 소요)</p>
+          <div className="mt-8 flex gap-2">
+            <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+            <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+            <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce"></span>
+          </div>
+        </div>
+      )}
     </div>
-  )
-}
-    </div >
   );
 }
 
