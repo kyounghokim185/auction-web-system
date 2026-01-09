@@ -138,7 +138,6 @@ function RenewalEstimateContent() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isProjectListOpen, setIsProjectListOpen] = useState(false);
   const [savedProjects, setSavedProjects] = useState<Project[]>([]);
-  const [savedProjects, setSavedProjects] = useState<Project[]>([]);
   const [isKosisLoading, setIsKosisLoading] = useState(false); // Data loading state
   const [isAnalyzing, setIsAnalyzing] = useState(false); // AI Analysis state
   const [aiResult, setAiResult] = useState<any>(null); // Store AI Result
@@ -387,6 +386,9 @@ function RenewalEstimateContent() {
       const imgData = canvas.toDataURL("image/png");
 
       const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * pdfWidth) / canvas.width;
 
@@ -408,11 +410,11 @@ function RenewalEstimateContent() {
         pdf.addPage();
         pdf.setFontSize(24);
         pdf.setTextColor(0, 0, 0);
-        pdf.text("AI 분석 및 전문가 제언", 20, 30);
+        pdf.text("종합 기술 검토 의견", 20, 30); // New Title
 
-        pdf.setFontSize(16);
+        pdf.setFontSize(14);
         pdf.setTextColor(75, 85, 99); // Slate-600
-        pdf.text("Project Analysis Report", 20, 40);
+        pdf.text("Comprehensive Technical Review Opinion", 20, 38);
 
         pdf.setLineWidth(0.5);
         pdf.line(20, 45, 190, 45);
@@ -429,19 +431,24 @@ function RenewalEstimateContent() {
           pdf.setTextColor(0, 0, 0);
           const lines = pdf.splitTextToSize(value, 160);
           pdf.text(lines, 20, yPos + 8);
-          yPos += 10 + (lines.length * 6);
+          yPos += 14 + (lines.length * 6);
         };
 
-        addItem("현장 상태 요약", `바닥: ${aiResult.floor_condition || '-'}, 벽: ${aiResult.wall_condition || '-'}`);
-        addItem("철거 필요 여부", aiResult.needs_demolition ? "필요함 (Detected)" : "특이사항 없음");
-        addItem("전문가 제언 (Veteran Advice)", aiResult.expert_advice || "제언 사항 없음");
+        addItem("1. 현장 상태 요약", `바닥: ${aiResult.floor_condition || '-'}, 벽: ${aiResult.wall_condition || '-'}`);
+        addItem("2. 예상 평수 및 물량", `${aiResult.estimated_pyung ? aiResult.estimated_pyung + '평' : '식별 불가'} (현장 실측 필요)`);
+        addItem("3. 베테랑 소장의 시공 주의사항", aiResult.expert_advice || "특이사항 없음");
 
         // Stamp
         pdf.setDrawColor(79, 70, 229); // Indigo
         pdf.rect(130, yPos + 20, 60, 20);
         pdf.setFontSize(10);
         pdf.setTextColor(79, 70, 229);
-        pdf.text("Verified by AI Vision", 145, yPos + 32);
+        pdf.text("IPARK MALL DESIGN TEAM", 135, yPos + 32);
+
+        // Specific Footer for AI Page
+        pdf.setFontSize(10);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text("Ipark Mall Interior Part / Specialized Renovation Team", 20, 280);
       }
 
       // Footer Branding
@@ -470,7 +477,7 @@ function RenewalEstimateContent() {
   // AI Analysis Logic
   const handleAnalyzeImage = async () => {
     if (images.length === 0) {
-      alert("분석할 현장 사진을 먼저 업로드해주세요.");
+      alert("분석할 현장 사진을 먼저 등록해 주세요.");
       return;
     }
 
@@ -663,32 +670,6 @@ function RenewalEstimateContent() {
       <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Editor Content */}
         <div className="lg:col-span-8 flex flex-col gap-8">
-
-          {/* AI Insight Section (New) */}
-          {aiResult && (
-            <section className="bg-gradient-to-br from-violet-50 to-indigo-50 rounded-xl shadow-sm border border-violet-100 p-6 animate-in fade-in slide-in-from-top-4">
-              <h2 className="text-lg font-bold text-violet-800 mb-4 flex items-center gap-2">
-                <BrainCircuit className="w-6 h-6" />
-                AI 분석 및 전문가 제언
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-4 rounded-lg border border-violet-100 shadow-sm">
-                  <h3 className="text-sm font-bold text-slate-500 mb-2">현장 상태 요약</h3>
-                  <ul className="space-y-2 text-sm text-slate-700">
-                    <li><span className="font-semibold text-slate-900">철거 필요:</span> {aiResult.needs_demolition ? "필요함 (감지됨)" : "양호"}</li>
-                    <li><span className="font-semibold text-slate-900">바닥 상태:</span> {aiResult.floor_condition}</li>
-                    <li><span className="font-semibold text-slate-900">벽면 상태:</span> {aiResult.wall_condition}</li>
-                  </ul>
-                </div>
-                <div className="bg-white p-4 rounded-lg border border-violet-100 shadow-sm">
-                  <h3 className="text-sm font-bold text-slate-500 mb-2">전문가 인사이트 (Veteran Advice)</h3>
-                  <p className="text-sm text-slate-800 italic leading-relaxed">
-                    "{aiResult.expert_advice || "특이사항 없습니다."}"
-                  </p>
-                </div>
-              </div>
-            </section>
-          )}
 
           {/* 0. Project Details (New Section) */}
           <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -1116,7 +1097,7 @@ function RenewalEstimateContent() {
             <BrainCircuit className="w-16 h-16 text-violet-400" />
           </div>
           <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">AI가 현장을 정밀 분석 중입니다...</h2>
-          <p className="text-violet-200 text-sm font-medium">건축물 대장 및 KOSIS 데이터와 대조 중 (약 10초 소요)</p>
+          <p className="text-violet-200 text-sm font-medium animate-pulse">건축물 대장 및 KOSIS 데이터 대조 중 (약 10초 소요)</p>
           <div className="mt-8 flex gap-2">
             <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
             <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
