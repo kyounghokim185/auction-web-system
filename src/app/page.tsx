@@ -475,6 +475,17 @@ function RenewalEstimateContent() {
   };
 
   // AI Analysis Logic
+  const handleTestAI = async () => {
+    try {
+      const res = await fetch('/api/test-gemini', { method: 'POST' });
+      const result = await res.json();
+      if (res.ok) alert(`[테스트 성공]\n${result.message}`);
+      else alert(`[테스트 실패]\n${result.message}`);
+    } catch (e) {
+      alert("연결 오류 발생");
+    }
+  };
+
   const handleAnalyzeImage = async () => {
     if (images.length === 0) {
       alert("분석할 현장 사진을 먼저 등록해 주세요.");
@@ -662,6 +673,12 @@ function RenewalEstimateContent() {
             >
               {isAnalyzing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4" />}
               <span className="hidden sm:inline">AI 정밀 분석</span>
+            </button>
+            <button
+              onClick={handleTestAI}
+              className="flex items-center gap-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-bold shadow-sm"
+            >
+              <span className="hidden sm:inline">AI 연결 테스트</span>
             </button>
           </div>
         </div>
@@ -989,7 +1006,7 @@ function RenewalEstimateContent() {
             </section>
           )
         }
-    </div >
+    </div>
 
       {/* Right Side: Sticky Summary */ }
   <div className="lg:col-span-4">
