@@ -60,13 +60,42 @@ const INITIAL_TASKS: RemodelingTask[] = [
 const TEMPLATE_CONFIG: Record<string, readonly string[]> = {
   "인테리어": TASK_CATEGORIES, // Show All
   "원상복구": ["가설 및 철거", "바닥", "벽", "천장", "전기/통신", "설비", "소방", "기타"],
-  "인허가 공사": ["설계", "전기/통신", "설비", "소방", "기타"]
+  "인허가 공사": ["설계", "전기/통신", "설비", "소방", "기타"] // Corrected name
 };
+
+// Base Unit Prices (KRW per pyung/unit) - Approximations for Algo
+const BASE_UNIT_PRICES: Record<string, number> = {
+  "설계": 100000,
+  "가설 및 철거": 150000,
+  "파사드": 300000,
+  "바닥": 120000,
+  "벽": 110000,
+  "천장": 130000,
+  "전기/통신": 180000,
+  "설비": 200000,
+  "소방": 150000,
+  "사인/가구/주방/위생": 400000,
+  "기타": 50000
+};
+
+// Labor Mapping KOSIS JOB -> Category
+const LABOR_MAPPING: Record<string, string> = {
+  "전기/통신": "내선전공",
+  "설비": "배관공",
+  "소방": "배관공",
+  "벽": "미장공",
+  "바닥": "미장공",
+  "천장": "내장목공",
+  "파사드": "도장공"
+};
+
 function RenewalEstimateContent() {
   // Global State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [constructionType, setConstructionType] = useState<string>("인테리어");
+  // KOSIS STATE
+  const [kosisData, setKosisData] = useState<any>(null); // Store fetched data
 
   const [projectInfo, setProjectInfo] = useState({
     id: "",
@@ -88,6 +117,7 @@ function RenewalEstimateContent() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isProjectListOpen, setIsProjectListOpen] = useState(false);
   const [savedProjects, setSavedProjects] = useState<Project[]>([]);
+  const [isKosisLoading, setIsKosisLoading] = useState(false); // Data loading state
 
   // Refs
   // Add data attribute for onclone selection
@@ -180,6 +210,40 @@ function RenewalEstimateContent() {
     setTasks(project.tasks);
     setImages(project.images);
     setIsProjectListOpen(false);
+
+    // KOSIS Inflation Check
+    if (project.created_at) {
+      checkInflation(project.created_at, project.tasks);
+    }
+  };
+
+  const checkInflation = async (dateStr: string, currentTasks: RemodelingTask[]) => {
+    try {
+      // 1. Fetch Past Index
+      const resPast = await fetch(`/api/kosis?date=${dateStr}`);
+      const dataPast = await resPast.json();
+
+      // 2. Fetch Current Index (reuse or fetch)
+      const resNow = await fetch(`/api/kosis`);
+      const dataNow = await resNow.json();
+
+      if (dataNow.index > dataPast.index) {
+        const rate = (dataNow.index - dataPast.index) / dataPast.index;
+        const percent = (rate * 100).toFixed(1);
+
+        if (confirm(`[물가 보정 알림]\n이 견적서는 작성일 기준보다 건설공사비지수가 약 ${percent}% 상승했습니다.\n\n현재 시세로 단가를 보정하시겠습니까?`)) {
+          const newTasks = currentTasks.map(t => ({
+            ...t,
+            unit_price: Math.round((t.unit_price * (1 + rate)) / 1000) * 1000
+          }));
+          setTasks(newTasks);
+        }
+      }
+      // Also save Kosis Data for UI
+      setKosisData(dataNow);
+    } catch (e) {
+      console.error("Inflation Check Failed", e);
+    }
   };
 
   // Load list on mount/open
@@ -318,6 +382,16 @@ function RenewalEstimateContent() {
         heightLeft -= pdfHeight;
       }
 
+      // Footer Branding
+      const totalPages = pdf.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text("본 견적은 KOSIS(통계청) 실시간 건설공사비지수 및 임금실태조사 데이터를 기반으로 산출되었습니다.", 20, pdf.internal.pageSize.getHeight() - 10);
+        pdf.text("Gwangju Renewal Corp.", pdf.internal.pageSize.getWidth() - 50, pdf.internal.pageSize.getHeight() - 10);
+      }
+
       const safeName = projectInfo.name.replace(/[^a-zA-Z0-9가-힣\s]/g, "").trim() || "견적서";
       pdf.save(`${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
 
@@ -328,6 +402,48 @@ function RenewalEstimateContent() {
       alert(msg);
     } finally {
       setIsGeneratingPdf(false);
+    }
+  };
+
+  // KOSIS Data Application
+  const handleApplyKosisData = async () => {
+    console.log("KOSIS 데이터 호출 시작"); // Debug Log
+    if (!confirm("통계청 최신 데이터를 불러와 단가를 갱신하시겠습니까? (기존 값 변경됨)")) return;
+
+    setIsKosisLoading(true);
+    try {
+      const response = await fetch('/api/kosis');
+      const data = await response.json();
+      console.log("KOSIS 응답 데이터:", data);
+
+      const multiplier = (data.index || 100) / 100;
+
+      const newTasks = tasks.map(t => {
+        // 1. Check Labor Mapping first
+        let newPrice = 0;
+        const laborKey = LABOR_MAPPING[t.category];
+        if (laborKey && data.labor_costs && data.labor_costs[laborKey]) {
+          newPrice = data.labor_costs[laborKey];
+        } else {
+          // 2. Fallback to Index Multiplier
+          const base = BASE_UNIT_PRICES[t.category] || 100000;
+          newPrice = Math.round((base * multiplier) / 1000) * 1000;
+        }
+
+        // Only update if currently 0 or we want to overwrite all? 
+        // User said "automatically fill", implying overwrite.
+        return { ...t, unit_price: newPrice };
+      });
+
+      setTasks(newTasks);
+      setKosisData(data);
+      alert(`[통계청 데이터 적용 완료]\n${data.source === 'kosis_api' ? '실시간 데이터' : '내부 지수'}가 적용되었습니다.\n건설공사비지수: ${data.index}`);
+
+    } catch (e) {
+      console.error("KOSIS Fetch Error:", e);
+      alert("데이터 불러오기 실패.");
+    } finally {
+      setIsKosisLoading(false);
     }
   };
 
@@ -401,6 +517,14 @@ function RenewalEstimateContent() {
               <Save className="w-4 h-4" />
               <span className="hidden sm:inline">저장</span>
             </button>
+            <button
+              onClick={handleApplyKosisData}
+              disabled={isKosisLoading}
+              className="flex items-center gap-1 px-3 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 text-sm font-bold shadow-sm disabled:opacity-50"
+            >
+              <RefreshCw className={cn("w-4 h-4", isKosisLoading && "animate-spin")} />
+              <span className="hidden sm:inline">KOSIS 단가 불러오기</span>
+            </button>
           </div>
         </div>
       </header>
@@ -441,22 +565,32 @@ function RenewalEstimateContent() {
               <span className="w-1.5 h-6 bg-indigo-600 rounded-full block"></span>
               프로젝트 기본 정보
             </h2>
-            {/* 0.5 Template Selector */}
-            <div className="flex gap-2 mb-2">
-              {Object.keys(TEMPLATE_CONFIG).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setConstructionType(type)}
-                  className={cn(
-                    "px-4 py-2 rounded-lg font-bold text-sm transition-all shadow-sm",
-                    constructionType === type
-                      ? "bg-indigo-600 text-white shadow-indigo-200"
-                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                  )}
-                >
-                  {type}
-                </button>
-              ))}
+            {/* 0.5 Template Selector & KOSIS Button */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+              <div className="flex gap-2">
+                {Object.keys(TEMPLATE_CONFIG).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setConstructionType(type)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg font-bold text-sm transition-all shadow-sm",
+                      constructionType === type
+                        ? "bg-indigo-600 text-white shadow-indigo-200"
+                        : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                    )}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={handleApplyKosisData}
+                disabled={isKosisLoading}
+                className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-bold shadow-sm disabled:opacity-50"
+              >
+                <RefreshCw className={cn("w-4 h-4", isKosisLoading && "animate-spin")} />
+                <span>통계청 최신 단가 적용</span>
+              </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -583,13 +717,24 @@ function RenewalEstimateContent() {
                                 </div>
                               </div>
                               <div className="col-span-4 md:col-span-2">
-                                <input
-                                  type="number"
-                                  placeholder="단가"
-                                  value={task.unit_price}
-                                  onChange={(e) => handleUpdateTask(task.id, 'unit_price', Number(e.target.value))}
-                                  className="w-full text-right bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-semibold focus:ring-1 focus:ring-indigo-500 outline-none"
-                                />
+                                <div className="flex flex-col">
+                                  <input
+                                    type="number"
+                                    placeholder="단가"
+                                    value={task.unit_price}
+                                    onChange={(e) => handleUpdateTask(task.id, 'unit_price', Number(e.target.value))}
+                                    className="w-full text-right bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-semibold focus:ring-1 focus:ring-indigo-500 outline-none"
+                                  />
+                                  {/* KOSIS Suggestion */}
+                                  {kosisData && kosisData.labor_costs && LABOR_MAPPING[task.category] && (
+                                    <button
+                                      onClick={() => handleUpdateTask(task.id, 'unit_price', kosisData.labor_costs[LABOR_MAPPING[task.category]])}
+                                      className="text-[10px] text-green-600 text-right mt-1 hover:underline text-xs flex items-center justify-end gap-1"
+                                    >
+                                      <span>⚡ 표준: {formatCurrency(kosisData.labor_costs[LABOR_MAPPING[task.category]])}</span>
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                               <div className="col-span-4 md:col-span-2 text-right">
                                 <div className="text-xs font-bold text-slate-700 mt-1.5">
