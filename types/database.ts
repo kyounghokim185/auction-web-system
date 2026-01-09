@@ -10,6 +10,7 @@ export interface Project {
   id: string
   name: string
   author: string
+  type?: string // Construction Type (Interior, Restoration, Permitting)
   start_date: string | null
   duration: string
   notes: string

@@ -57,11 +57,16 @@ const INITIAL_TASKS: RemodelingTask[] = [
   // 11. 기타
   { id: "etc1", isChecked: false, category: "기타", item_name: "기타", description: "", unit_price: 0, area: 0 },
 ];
-
+const TEMPLATE_CONFIG: Record<string, readonly string[]> = {
+  "인테리어": TASK_CATEGORIES, // Show All
+  "원상복구": ["가설 및 철거", "바닥", "벽", "천장", "전기/통신", "설비", "소방", "기타"],
+  "인허가 공사": ["설계", "전기/통신", "설비", "소방", "기타"]
+};
 function RenewalEstimateContent() {
   // Global State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
+  const [constructionType, setConstructionType] = useState<string>("인테리어");
 
   const [projectInfo, setProjectInfo] = useState({
     id: "",
@@ -131,6 +136,7 @@ function RenewalEstimateContent() {
       const payload = {
         name: projectInfo.name,
         author: projectInfo.author,
+        type: constructionType, // Save Type
         start_date: projectInfo.start_date || null,
         duration: projectInfo.duration,
         notes: projectInfo.notes,
@@ -169,6 +175,7 @@ function RenewalEstimateContent() {
       duration: project.duration,
       notes: project.notes
     });
+    setConstructionType(project.type || "인테리어"); // Load Type
     setBaseArea(project.base_area);
     setTasks(project.tasks);
     setImages(project.images);
@@ -434,6 +441,24 @@ function RenewalEstimateContent() {
               <span className="w-1.5 h-6 bg-indigo-600 rounded-full block"></span>
               프로젝트 기본 정보
             </h2>
+            {/* 0.5 Template Selector */}
+            <div className="flex gap-2 mb-2">
+              {Object.keys(TEMPLATE_CONFIG).map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setConstructionType(type)}
+                  className={cn(
+                    "px-4 py-2 rounded-lg font-bold text-sm transition-all shadow-sm",
+                    constructionType === type
+                      ? "bg-indigo-600 text-white shadow-indigo-200"
+                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                  )}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -479,6 +504,9 @@ function RenewalEstimateContent() {
 
             <div className="space-y-3">
               {TASK_CATEGORIES.map((category) => {
+                // Filter based on Template
+                if (!TEMPLATE_CONFIG[constructionType].includes(category)) return null;
+
                 const categoryTasks = tasks.filter(t => t.category === category);
                 // "기타" 카테고리는 항상 보이게 하거나, 초기 데이터에 없으면 안보이게 처리
                 if (categoryTasks.length === 0 && category !== "기타") return null;
