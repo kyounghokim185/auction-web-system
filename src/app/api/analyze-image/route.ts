@@ -19,8 +19,8 @@ export async function POST(request: Request) {
         const arrayBuffer = await imageRes.arrayBuffer();
         const base64Image = Buffer.from(arrayBuffer).toString('base64');
 
-        // 2. Call Gemini 1.5 Flash API (Using v1beta as it supports 1.5-flash)
-        const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        // 2. Call Gemini 1.5 Flash API (Using v1 as requested)
+        const apiEndpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
         const promptText = `
       You are a 20-year veteran construction site manager in Korea.
