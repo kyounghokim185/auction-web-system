@@ -23,6 +23,7 @@ export async function POST(request: Request) {
         const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
         const promptText = `
+      You are a 20-year veteran construction site manager in Korea.
       Analyze this construction site photo for a renovation estimate.
       Return ONLY a JSON object with the following fields:
       - "needs_demolition": true/false (Is there debris, old structures, or things needing removal?)
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
       - "wall_condition": string (Brief description)
       - "recommendations": array of strings (List of recommended construction categories from: "가설 및 철거", "바닥", "벽", "천장", "전기/통신", "설비", "소방")
       - "estimated_pyung": number (Rough estimate of the area in Pyung, if visible, else null)
+      - "expert_advice": string (One sentence of professional, insightful advice derived from your 20 years of experience. Be specific to the photo's condition. e.g., "The ceiling structure looks old, so check for asbestos before demolition.")
     `;
 
         const requestBody = {
