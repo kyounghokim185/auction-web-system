@@ -218,9 +218,16 @@ function RenewalEstimateContent() {
 
     // Map Korean Category to English Folder Name
     const folderMap: Record<string, string> = {
+      "설계": "design",
+      "가설 및 철거": "demolition",
+      "파사드": "facade",
       "바닥": "floor",
       "벽": "wall",
       "천장": "ceiling",
+      "전기/통신": "electric-com",
+      "설비": "plumbing",
+      "소방": "fire",
+      "사인/가구/주방/위생": "furniture-kitchen",
       "기타": "etc"
     };
     const folderName = folderMap[selectedImageCategory] || "etc";

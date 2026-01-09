@@ -36,7 +36,6 @@ export type UploadedImage = {
 }
 
 // Fixed Categories
-// Fixed Categories
 export const TASK_CATEGORIES = [
   "설계",
   "가설 및 철거",
@@ -53,7 +52,19 @@ export const TASK_CATEGORIES = [
 
 export type TaskCategory = typeof TASK_CATEGORIES[number];
 
-export const IMAGE_CATEGORIES = ["바닥", "벽", "천장", "기타"] as const;
+export const IMAGE_CATEGORIES = [
+  "설계",
+  "가설 및 철거",
+  "파사드",
+  "바닥",
+  "벽",
+  "천장",
+  "전기/통신",
+  "설비",
+  "소방",
+  "사인/가구/주방/위생",
+  "기타"
+] as const;
 export type ImageCategory = typeof IMAGE_CATEGORIES[number];
 
 export interface Database {
