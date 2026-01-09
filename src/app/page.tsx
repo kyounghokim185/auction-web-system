@@ -81,7 +81,7 @@ const INITIAL_TASKS: RemodelingTask[] = [
 const TEMPLATE_CONFIG: Record<string, readonly string[]> = {
   "인테리어": TASK_CATEGORIES, // Show All
   "원상복구": ["가설 및 철거", "바닥", "벽", "천장", "전기/통신", "설비", "소방", "기타"],
-  "인허가 시설공사": ["설계", "전기/통신", "설비", "소방", "기타"] // Fixed Name "인허가 시설공사"
+  "인허가 공사": ["설계", "전기/통신", "설비", "소방", "기타"] // Fixed Name "인허가 공사"
 };
 
 // Base Unit Prices
@@ -1003,13 +1003,15 @@ function RenewalEstimateContent() {
                   </p>
                 </div>
               </div>
-            </section>
+            </div>
+              </div>
+            </section >
           )
-        }
-    </div>
+}
+        </div >
 
-      {/* Right Side: Sticky Summary */ }
-  <div className="lg:col-span-4">
+  {/* Right Side: Sticky Summary */ }
+  < div className = "lg:col-span-4" >
     <div className="sticky top-24 space-y-4">
       <div className="bg-slate-900 rounded-2xl shadow-xl overflow-hidden text-white p-6">
         <h3 className="text-lg font-bold text-slate-100 border-b border-slate-700 pb-4 mb-6">견적 종합 요약</h3>
@@ -1034,8 +1036,8 @@ function RenewalEstimateContent() {
   </div >
       </main >
 
-    {/* Hidden Print Template - Replaced Tailwind Colors with safe Inline HEX */ }
-    < div style = {{ position: "absolute", left: "-9999px", top: 0 }
+  {/* Hidden Print Template - Replaced Tailwind Colors with safe Inline HEX */ }
+  < div style = {{ position: "absolute", left: "-9999px", top: 0 }
 }>
   <div
     ref={printRef}
